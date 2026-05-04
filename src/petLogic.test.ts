@@ -20,6 +20,7 @@ function snap(over: Partial<UsageSnapshot> = {}): UsageSnapshot {
     cache_hits_5min: 0,
     cache_misses_5min: 0,
     current_combo: 0,
+    last_cache_hit: null,
     now: NOW_ISO,
     api: null,
     api_error: null,

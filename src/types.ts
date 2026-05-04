@@ -19,6 +19,11 @@ export type UsageSnapshot = {
   cache_hits_5min: number;
   cache_misses_5min: number;
   current_combo: number;
+  /** hit/miss flag of the MOST RECENT assistant message — null when no
+   *  assistant entries exist yet. Drives the flash effect via change
+   *  detection on `last_request_at` (not the sliding 5min counts, which
+   *  can stay flat as old entries age out of the window). */
+  last_cache_hit: boolean | null;
   now: string;
   /** Live data from claude.ai's internal /api/.../usage endpoint when
    *  the user has configured org_id + session cookie. Treated as truth

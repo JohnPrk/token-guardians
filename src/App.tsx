@@ -557,7 +557,7 @@ function Pet({
   const [now, setNow] = useState(Date.now());
   const [idleAction, setIdleAction] = useState<IdleAction>("none");
   const [flash, setFlash] = useState<"hit" | "miss" | null>(null);
-  const [seenCounts, setSeenCounts] = useState({ hits: -1, misses: -1 });
+  const [seenLastReq, setSeenLastReq] = useState<string | null | "init">("init");
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -580,28 +580,29 @@ function Pet({
 
   const d = useMemo(() => derive(snap, config.limits, now), [snap, config, now]);
 
-  // Cache hit/miss flash effect: detect deltas in counts and pulse the panda
+  // Cache hit/miss flash: trigger when the latest assistant message advances.
+  // Counts in `cache_hits_5min` are a sliding window — they can stay flat or
+  // even drop as old entries age out, which used to swallow hits entirely.
+  // Tracking `last_request_at` + `last_cache_hit` instead fires on every new
+  // assistant response, regardless of window drift.
   useEffect(() => {
     if (!snap) return;
-    const { cache_hits_5min: h, cache_misses_5min: m } = snap;
-    if (seenCounts.hits === -1) {
+    const lastReq = snap.last_request_at;
+    if (seenLastReq === "init") {
       // First load — initialize without firing effects
-      setSeenCounts({ hits: h, misses: m });
+      setSeenLastReq(lastReq);
       return;
     }
-    let trigger: "hit" | "miss" | null = null;
-    if (h > seenCounts.hits) trigger = "hit";
-    else if (m > seenCounts.misses) trigger = "miss";
-    if (trigger) {
+    if (lastReq && lastReq !== seenLastReq && snap.last_cache_hit !== null) {
+      const trigger: "hit" | "miss" = snap.last_cache_hit ? "hit" : "miss";
       setFlash(trigger);
-      // hit glow는 0.9s, miss 비는 2.2s + delay → 가장 늦은 drop이 끝날 때까지 유지
       const dur = trigger === "miss" ? 4000 : 1200;
       const t = setTimeout(() => setFlash(null), dur);
-      setSeenCounts({ hits: h, misses: m });
+      setSeenLastReq(lastReq);
       return () => clearTimeout(t);
     }
-    setSeenCounts({ hits: h, misses: m });
-  }, [snap?.cache_hits_5min, snap?.cache_misses_5min]);
+    setSeenLastReq(lastReq);
+  }, [snap?.last_request_at, snap?.last_cache_hit]);
 
   // Idle micro-actions: filtered by current energy tier so a sleepy panda
   // doesn't spontaneously start exercising. sleep/dead never trigger any.

@@ -32,6 +32,11 @@ pub struct UsageSnapshot {
     /// Consecutive cache hits ending at the most recent assistant message.
     /// Resets to 0 the moment a miss interrupts the streak.
     pub current_combo: u32,
+    /// Whether the MOST RECENT assistant message was a cache hit.
+    /// Combined with `last_request_at`, the UI fires the flash effect when
+    /// this advances — independent of the sliding 5min window count, which
+    /// can stay flat or even drop as old entries age out.
+    pub last_cache_hit: Option<bool>,
     pub now: DateTime<Utc>,
 }
 
@@ -278,6 +283,7 @@ pub fn snapshot() -> UsageSnapshot {
     let cache_window_start = now - Duration::milliseconds(CACHE_WINDOW_MS);
     let mut hits_5min: u32 = 0;
     let mut misses_5min: u32 = 0;
+    let mut last_cache_hit: Option<bool> = None;
 
     for e in &parsed {
         match e.role {
@@ -292,6 +298,7 @@ pub fn snapshot() -> UsageSnapshot {
                     }
                 }
                 last_assistant_at = Some(e.timestamp);
+                last_cache_hit = Some(e.cache_hit);
                 if e.timestamp >= cache_window_start {
                     if e.cache_hit {
                         hits_5min = hits_5min.saturating_add(1);
@@ -344,6 +351,7 @@ pub fn snapshot() -> UsageSnapshot {
         cache_hits_5min: hits_5min,
         cache_misses_5min: misses_5min,
         current_combo,
+        last_cache_hit,
         now,
     }
 }
