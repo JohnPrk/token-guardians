@@ -187,6 +187,7 @@
 /* Usage % bubble (between cache + panda) */
 .bubble.usage {
   padding: 5px 10px;
+  min-width: 168px;
 }
 .usage-row {
   display: flex;

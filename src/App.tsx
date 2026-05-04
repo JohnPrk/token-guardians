@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -557,7 +557,10 @@ function Pet({
   const [now, setNow] = useState(Date.now());
   const [idleAction, setIdleAction] = useState<IdleAction>("none");
   const [flash, setFlash] = useState<"hit" | "miss" | null>(null);
-  const [seenLastReq, setSeenLastReq] = useState<string | null | "init">("init");
+  // useRef instead of useState — avoids stale-closure/batching races where
+  // the effect's captured seenLastReq lagged a render behind, swallowing
+  // back-to-back snap updates.
+  const seenLastReqRef = useRef<string | null | "init">("init");
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -583,25 +586,25 @@ function Pet({
   // Cache hit/miss flash: trigger when the latest assistant message advances.
   // Counts in `cache_hits_5min` are a sliding window — they can stay flat or
   // even drop as old entries age out, which used to swallow hits entirely.
-  // Tracking `last_request_at` + `last_cache_hit` instead fires on every new
-  // assistant response, regardless of window drift.
+  // Tracking `last_request_at` + `last_cache_hit` via ref (not state) fires
+  // on every new assistant response without React batching/closure races.
   useEffect(() => {
     if (!snap) return;
     const lastReq = snap.last_request_at;
-    if (seenLastReq === "init") {
-      // First load — initialize without firing effects
-      setSeenLastReq(lastReq);
+    const seen = seenLastReqRef.current;
+    if (seen === "init") {
+      seenLastReqRef.current = lastReq;
       return;
     }
-    if (lastReq && lastReq !== seenLastReq && snap.last_cache_hit !== null) {
+    if (lastReq && lastReq !== seen && snap.last_cache_hit !== null) {
       const trigger: "hit" | "miss" = snap.last_cache_hit ? "hit" : "miss";
+      seenLastReqRef.current = lastReq;
       setFlash(trigger);
       const dur = trigger === "miss" ? 4000 : 2500;
       const t = setTimeout(() => setFlash(null), dur);
-      setSeenLastReq(lastReq);
       return () => clearTimeout(t);
     }
-    setSeenLastReq(lastReq);
+    seenLastReqRef.current = lastReq;
   }, [snap?.last_request_at, snap?.last_cache_hit]);
 
   // Idle micro-actions: filtered by current energy tier so a sleepy panda
