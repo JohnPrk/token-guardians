@@ -189,15 +189,15 @@
   padding: 5px 10px;
 }
 .usage-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 26px 38px 1fr;
   align-items: baseline;
-  gap: 4px;
+  gap: 0 4px;
   font-feature-settings: "tnum";
 }
 .usage-label {
   color: #888;
   font-size: 10px;
-  width: 22px;
 }
 .usage-pct {
   font-weight: 600;
@@ -205,17 +205,15 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: pre;
-  margin-left: auto;
 }
 .usage-pct.warn { color: #d68a1f; }
 .usage-pct.danger { color: #d34141; }
 .usage-reset {
   font-size: 9px;
   color: #999;
-  text-align: right;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  padding-left: 4px;
+  padding-left: 2px;
 }
 
 /* Cache bubble stats row (hits / misses / combo) */
