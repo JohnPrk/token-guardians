@@ -63,6 +63,12 @@
 
 **케이스 A: "‘토큰 판다’은(는) 손상되었기 때문에 열 수 없습니다. 해당 항목을 휴지통으로 이동해야 합니다." 다이얼로그**
 
+<br>
+
+<img width="520" height="560" alt="image" src="https://github.com/user-attachments/assets/93a83203-5960-43cd-b2a0-06c0d3bb62fe" />
+
+<br>
+
 실제로 파일이 깨진 게 아니라, 서명/공증 안 된 앱에 macOS가 quarantine 속성(`com.apple.quarantine`)을 붙여서 차단하는 것입니다. 우클릭 → 열기로도 안 뚫리니 quarantine 속성 자체를 제거해야 합니다. 터미널을 열어 아래 한 줄을 입력하세요.
 
 ```bash
