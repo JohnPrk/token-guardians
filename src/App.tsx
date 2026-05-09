@@ -821,6 +821,7 @@ function Pet({
 
   return (
     <div className="pet-root">
+      <div className="pet-content">
       <div className="bubble-stack" data-tauri-drag-region>
         {showCache && (
           <CacheBubble
@@ -899,6 +900,7 @@ function Pet({
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

@@ -98,6 +98,15 @@
   justify-content: flex-end;
   padding: 8px;
   box-sizing: border-box;
+}
+
+/* Tight content wrapper — 말풍선+펫을 하나로 묶는 fit-content 컨테이너.
+   마우스 passthrough 경계 시각화 및 클릭 영역 기준으로 사용. */
+.pet-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: fit-content;
   gap: 8px;
 }
 
@@ -1893,3 +1902,16 @@
     border-color: rgba(155, 133, 255, 0.25);
   }
 }
+
+/* ───────── 펫 윈도우 mouse passthrough ─────────
+   윈도우 자체 크기는 그대로 두되, 거품·펫 사이의 시각적으로 빈 공간은
+   데스크톱 클릭이 통과되도록 한다. */
+.pet-root,
+.pet-root .bubble-stack {
+  pointer-events: none;
+}
+.pet-root .bubble,
+.pet-root .character {
+  pointer-events: auto;
+}
+
