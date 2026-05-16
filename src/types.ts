@@ -6,6 +6,15 @@ export type ApiUsage = {
   fetched_at: string;
 };
 
+/** platform.claude.com 의 prepaid 잔액. dollars 단위(소수점 둘째자리). usage
+ *  호출과 같은 poller cycle에서 별개 endpoint(/prepaid/credits)로 채워진다.
+ *  usage가 살아있어도 prepaid가 비어 있을 수 있고(API 변경/권한 이슈 등),
+ *  trayMode === "all" 일 때만 트레이/펫 카드에 표시된다. */
+export type PrepaidCredits = {
+  dollars: number;
+  fetched_at: string;
+};
+
 export type UsageSnapshot = {
   five_hour_tokens: number;
   weekly_tokens: number;
@@ -31,6 +40,10 @@ export type UsageSnapshot = {
   api: ApiUsage | null;
   /** Last error string from the API poller, surfaced in Settings. */
   api_error?: string | null;
+  /** platform.claude.com prepaid 잔액. 같은 poller cycle에서 별 endpoint로
+   *  가져옴. trayMode === "all" 일 때만 트레이/카드에 노출된다. */
+  prepaid?: PrepaidCredits | null;
+  prepaid_error?: string | null;
   /** 활성 세션 카드 stack. 마지막 assistant 응답이 5분 이내인 세션만, 최신순 정렬,
    *  Rust 쪽 MAX_ACTIVE_SESSIONS=5로 cap. 빈 배열일 수 있음. */
   active_sessions: SessionInfo[];
@@ -84,7 +97,7 @@ export type PlanConfig = {
   trayMode?: TrayMode;
 };
 
-export type TrayMode = "fivehour" | "both";
+export type TrayMode = "fivehour" | "both" | "all";
 
 // Anthropic does not publish exact 5h/weekly token limits per plan.
 // Used only as fallback when the API path isn't configured.

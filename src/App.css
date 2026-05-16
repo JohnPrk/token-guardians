@@ -1966,16 +1966,28 @@
 
 /* ───────── 펫 윈도우 mouse passthrough ─────────
    윈도우 자체 크기는 그대로 두되, 거품·펫 사이의 시각적으로 빈 공간은
-   데스크톱 클릭이 통과되도록 한다. */
+   데스크톱 클릭이 통과되도록 한다.
+   pointer-events는 상속되지 않으므로 wrapper도 모두 명시. .pet-content가
+   누락되면 그 박스(거품+펫을 묶는 fit-content)가 클릭을 잡아 빈 공간
+   passthrough가 깨진다 (v1.26+ 세션 stack 추가 후 표면화된 회귀).
+   .session-card는 v1.49부터 auto로 풀어 카드 위 mousedown → 윈도우 드래그
+   (data-tauri-drag-region). 카드 사이 갭은 .session-stack이 none이라 통과. */
 .pet-root,
+.pet-root .pet-content,
 .pet-root .bubble-stack,
-.pet-root .session-stack,
-.pet-root .session-card {
+.pet-root .session-stack {
   pointer-events: none;
 }
 .pet-root .bubble,
-.pet-root .character {
+.pet-root .character,
+.pet-root .session-card {
   pointer-events: auto;
+}
+.pet-root .session-card {
+  cursor: grab;
+}
+.pet-root .session-card:active {
+  cursor: grabbing;
 }
 
 /* ───────── 세션 카드 stack (v1.26+) ─────────

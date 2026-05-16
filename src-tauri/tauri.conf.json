@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "토큰 판다",
-  "version": "1.47.0",
+  "version": "1.49.0",
   "identifier": "com.tnew.clauddeskpet",
   "build": {
     "frontendDist": "../dist",

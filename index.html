@@ -8,6 +8,21 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- 펫 윈도우(view 파라미터 없음)일 때 html/body/#root가 마우스 hit-test를
+         받지 않도록 main.tsx 마운트 직전에 강제. CSS :has() 동적 평가 의존
+         없이 가장 빠른 시점에 박는다. settings/onboarding/preview 윈도우는
+         이 분기 밖이라 평소처럼 클릭 받음. -->
+    <script>
+      (function () {
+        var v = new URLSearchParams(location.search).get("view");
+        if (!v) {
+          document.documentElement.style.pointerEvents = "none";
+          document.body.style.pointerEvents = "none";
+          var r = document.getElementById("root");
+          if (r) r.style.pointerEvents = "none";
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

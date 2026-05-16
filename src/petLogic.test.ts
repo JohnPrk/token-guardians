@@ -252,6 +252,31 @@ describe("formatTrayLabel", () => {
     // 0.005 * 100 = 0.5, Math.round(0.5) = 1 (JS는 0.5에서 짝수가 아니라 위로 올림)
     expect(formatTrayLabel("fivehour", 0.005, 0)).toBe("1%");
   });
+
+  // === all 모드 (v1.48) — 5h + 주간 + prepaid $ ===
+  it("all 모드 + prepaid 값 있음 → 셋 다 표시 (· $X.XX)", () => {
+    expect(formatTrayLabel("all", 0.76, 0.54, 12.34)).toBe(
+      "76% · 주 54% · $12.34",
+    );
+    expect(formatTrayLabel("all", 1, 1, 0.5)).toBe("100% · 주 100% · $0.50");
+  });
+
+  it("all 모드인데 prepaid가 null/NaN이면 both 동작으로 폴백 (라벨 깜빡임 방지)", () => {
+    expect(formatTrayLabel("all", 0.76, 0.54, null)).toBe("76% · 주 54%");
+    expect(formatTrayLabel("all", 0.76, 0.54, NaN)).toBe("76% · 주 54%");
+  });
+
+  it("all 모드는 prepaid를 항상 둘째 자리까지 toFixed", () => {
+    expect(formatTrayLabel("all", 0.5, 0.5, 1)).toBe("50% · 주 50% · $1.00");
+    expect(formatTrayLabel("all", 0.5, 0.5, 12)).toBe("50% · 주 50% · $12.00");
+    expect(formatTrayLabel("all", 0.5, 0.5, 0)).toBe("50% · 주 50% · $0.00");
+  });
+
+  it("fivehour/both 모드 호출 시 prepaid 인자 무시", () => {
+    // 4번째 인자가 들어와도 fivehour/both는 변동 없음.
+    expect(formatTrayLabel("fivehour", 0.76, 0.54, 99.99)).toBe("76%");
+    expect(formatTrayLabel("both", 0.76, 0.54, 99.99)).toBe("76% · 주 54%");
+  });
 });
 
 describe("formatResetCountdown", () => {

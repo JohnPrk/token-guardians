@@ -859,14 +859,23 @@ function Pet({
   // Tray title. 4단계 PNG 트레이 아이콘(대나무 → 죽순 → 시든 잎)이 상태를
   // 전부 표현하므로, 텍스트 라벨은 사용자가 메뉴 "표시 모드 ▸"에서 고른 형식대로
   // 송신한다. legacy store에 trayMode가 없으면 "fivehour" (v1.24까지의 동작).
+  // mode === "all" 이고 prepaid 잔액이 있으면 라벨 끝에 `· $12.34` 합쳐짐.
   useEffect(() => {
     const five = d.petState === "disconnected" ? 0 : d.fiveHourRemaining;
     const weekly = d.petState === "disconnected" ? 0 : d.weeklyRemaining;
     const mode: TrayMode = config.trayMode ?? "fivehour";
-    const title = formatTrayLabel(mode, five, weekly);
+    const prepaid =
+      d.petState === "disconnected" ? null : snap?.prepaid?.dollars ?? null;
+    const title = formatTrayLabel(mode, five, weekly, prepaid);
     invoke("set_tray_title", { title }).catch(() => {});
     invoke("set_tray_icon_for_remaining", { remaining: five }).catch(() => {});
-  }, [d.fiveHourRemaining, d.weeklyRemaining, d.petState, config.trayMode]);
+  }, [
+    d.fiveHourRemaining,
+    d.weeklyRemaining,
+    d.petState,
+    config.trayMode,
+    snap?.prepaid?.dollars,
+  ]);
 
   // Threshold notifications (battery-style: low remaining triggers alert).
   // disconnected는 "데이터 없음" 의미라 마지막 값 기반 알림 발사를 차단.
@@ -941,9 +950,35 @@ function Pet({
   // 호출은 제거. (CacheBubble 컴포넌트가 미사용이지만 hit/miss flash와 콤보 정보를
   // 다시 보고 싶을 때 살리기 쉽게 정의는 유지.)
 
+  // v1.49 동적 윈도우 resize: .pet-content 실제 크기를 ResizeObserver로 측정해서
+  // Rust 쪽에 invoke. 윈도우 자체를 콘텐츠에 맞춰 줄여야 OS NSPanel hit-test가
+  // 잡을 빈 영역이 사라진다 (html/body/#root pointer-events: none 만으론 OS
+  // level dead zone 못 막음, v1.23~v1.26 시도들에서 확인). bottom anchor라
+  // 발끝 화면 위치는 유지.
+  const petContentRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = petContentRef.current;
+    if (!el) return;
+    let lastW = 0;
+    let lastH = 0;
+    const PAD = 16; // .pet-root padding 8px × 2
+    const ro = new ResizeObserver(() => {
+      const rect = el.getBoundingClientRect();
+      const w = Math.ceil(rect.width) + PAD;
+      const h = Math.ceil(rect.height) + PAD;
+      // hysteresis — 매 frame rounding 노이즈로 invoke 폭주 방지.
+      if (Math.abs(w - lastW) < 2 && Math.abs(h - lastH) < 2) return;
+      lastW = w;
+      lastH = h;
+      invoke("resize_pet_window", { width: w, height: h }).catch(() => {});
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <div className="pet-root">
-      <div className="pet-content">
+      <div className="pet-content" ref={petContentRef}>
       <SessionStack sessions={snap?.active_sessions ?? []} now={now} />
       <div className="bubble-stack" data-tauri-drag-region>
         {snap?.is_thinking && <ThinkingBubble />}
@@ -953,6 +988,12 @@ function Pet({
             weeklyRemaining={d.petState === "disconnected" ? 0 : d.weeklyRemaining}
             fiveResetMs={d.petState === "disconnected" ? null : d.fiveHourResetMs}
             weeklyResetMs={d.petState === "disconnected" ? null : d.weeklyResetMs}
+            prepaidDollars={
+              d.petState !== "disconnected" &&
+              (config.trayMode ?? "fivehour") === "all"
+                ? snap.prepaid?.dollars ?? null
+                : null
+            }
           />
         )}
       </div>
@@ -1055,15 +1096,16 @@ function SessionCard({
     <div
       className={`session-card${timer.expired ? " session-card--expired" : ""}`}
       style={{ "--session-hue": String(hue) } as React.CSSProperties}
+      data-tauri-drag-region
     >
-      <div className="session-card-row">
-        <span className="session-prompt" title={session.last_user_prompt}>
+      <div className="session-card-row" data-tauri-drag-region>
+        <span className="session-prompt" title={session.last_user_prompt} data-tauri-drag-region>
           {session.last_user_prompt}
         </span>
-        <span className="session-timer">{timer.label}</span>
+        <span className="session-timer" data-tauri-drag-region>{timer.label}</span>
       </div>
-      <div className="session-gauge">
-        <div className="session-gauge-fill" style={{ width: `${timer.pct}%` }} />
+      <div className="session-gauge" data-tauri-drag-region>
+        <div className="session-gauge-fill" style={{ width: `${timer.pct}%` }} data-tauri-drag-region />
       </div>
     </div>
   );
@@ -1085,11 +1127,13 @@ function UsageBubble({
   weeklyRemaining,
   fiveResetMs,
   weeklyResetMs,
+  prepaidDollars,
 }: {
   fiveRemaining: number;
   weeklyRemaining: number;
   fiveResetMs: number | null;
   weeklyResetMs: number | null;
+  prepaidDollars: number | null;
 }) {
   return (
     <div className="bubble usage" data-tauri-drag-region>
@@ -1117,6 +1161,17 @@ function UsageBubble({
           {weeklyResetMs !== null ? formatResetCountdown(weeklyResetMs) : "—"}
         </span>
       </div>
+      {prepaidDollars !== null && (
+        <div className="usage-row" data-tauri-drag-region>
+          <span className="usage-label" data-tauri-drag-region>$</span>
+          <span className="usage-pct ok" data-tauri-drag-region>
+            {`$${prepaidDollars.toFixed(2)}`}
+          </span>
+          <span className="usage-reset" data-tauri-drag-region>
+            prepaid
+          </span>
+        </div>
+      )}
     </div>
   );
 }

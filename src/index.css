@@ -17,6 +17,18 @@ html, body, #root {
   -webkit-user-select: none;
 }
 
+/* 펫 윈도우 전용 — root chain까지 hit-test 통과시키지 않으면 .pet-root가
+   pointer-events: none이어도 부모(#root/body/html)가 클릭을 받아 빈 영역이
+   데스크톱으로 안 통과된다. v1.23 mouse passthrough 때 누락된 부분, v1.26에서
+   윈도우 height가 460으로 커지며 위쪽 dead zone이 사용자 눈에 띔.
+   :has(.pet-root) 로 펫 윈도우에만 적용 → settings/onboarding 윈도우의
+   클릭은 영향 X. */
+html:has(.pet-root),
+body:has(.pet-root),
+#root:has(.pet-root) {
+  pointer-events: none;
+}
+
 /* Inputs must remain selectable/editable. WebKit in Tauri sometimes
    inherits user-select:none into form controls; force it back on so the
    Settings org-id / cookie fields accept paste and selection. */

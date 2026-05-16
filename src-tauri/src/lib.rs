@@ -3,7 +3,7 @@ mod login_capture;
 mod updater;
 mod usage;
 
-use claude_api::ApiUsage;
+use claude_api::{ApiUsage, PrepaidCredits};
 use login_capture::{build_cookie_header, extract_org_id_from_orgs_json, has_required_cookies};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
@@ -289,6 +289,10 @@ struct ApiState {
     config: Mutex<Option<(String, String)>>, // (org_id, cookie)
     latest: Mutex<Option<ApiUsage>>,
     last_error: Mutex<Option<String>>,
+    /// platform.claude.com prepaid 잔액. usage 호출과 같은 poller cycle에서
+    /// 별 호출로 채워진다. 둘은 독립적이라 하나가 실패해도 다른 쪽은 살린다.
+    prepaid: Mutex<Option<PrepaidCredits>>,
+    prepaid_error: Mutex<Option<String>>,
 }
 
 fn api_state() -> &'static ApiState {
@@ -302,13 +306,23 @@ struct CombinedSnapshot {
     inner: usage::UsageSnapshot,
     api: Option<ApiUsage>,
     api_error: Option<String>,
+    prepaid: Option<PrepaidCredits>,
+    prepaid_error: Option<String>,
 }
 
 fn build_combined_snapshot() -> CombinedSnapshot {
     let inner = usage::snapshot();
     let api = api_state().latest.lock().clone();
     let api_error = api_state().last_error.lock().clone();
-    CombinedSnapshot { inner, api, api_error }
+    let prepaid = api_state().prepaid.lock().clone();
+    let prepaid_error = api_state().prepaid_error.lock().clone();
+    CombinedSnapshot {
+        inner,
+        api,
+        api_error,
+        prepaid,
+        prepaid_error,
+    }
 }
 
 #[tauri::command]
@@ -328,6 +342,8 @@ fn set_api_config(org_id: Option<String>, cookie: Option<String>) -> Result<(), 
     if api_state().config.lock().is_none() {
         *api_state().latest.lock() = None;
         *api_state().last_error.lock() = None;
+        *api_state().prepaid.lock() = None;
+        *api_state().prepaid_error.lock() = None;
     }
     Ok(())
 }
@@ -413,9 +429,29 @@ fn refresh_usage(app: AppHandle) -> Result<(), String> {
                     maybe_popup_settings_for_auth(&app_clone, &err_for_popup);
                 }
             }
+            fetch_and_store_prepaid(&org, &cookie);
+            emit_snapshot(&app_clone);
         });
     }
     Ok(())
+}
+
+/// usage 호출과 같은 자격증명으로 prepaid 잔액을 호출해 글로벌 state에 저장한다.
+/// usage 와 별개라 실패해도 usage 값에는 영향 없음. 호출처가 emit_snapshot을
+/// 책임지므로 여기서는 emit 안 함.
+fn fetch_and_store_prepaid(org: &str, cookie: &str) {
+    match claude_api::fetch_prepaid_credits(org, cookie) {
+        Ok(dollars) => {
+            *api_state().prepaid.lock() = Some(PrepaidCredits {
+                dollars,
+                fetched_at: chrono::Utc::now(),
+            });
+            *api_state().prepaid_error.lock() = None;
+        }
+        Err(e) => {
+            *api_state().prepaid_error.lock() = Some(e);
+        }
+    }
 }
 
 #[tauri::command]
@@ -441,6 +477,37 @@ fn set_active_skin(_skin_id: String) -> Result<(), String> {
 #[tauri::command]
 fn set_tray_icon_for_remaining(_app: AppHandle, _remaining: f64) -> Result<(), String> {
     // 트레이 아이콘 제거됨. 호출 호환성 유지를 위해 시그니처는 보존.
+    Ok(())
+}
+
+/// 윈도우 height 변경 시 새 윈도우의 bottom 이 이전 bottom 과 같아지도록 새 top y 를
+/// 계산. 펫 발끝 화면 위치를 유지하기 위한 anchoring 식. 모든 단위는 physical px.
+pub fn compute_anchored_y(cur_y: i32, cur_height: u32, new_height: u32) -> i32 {
+    cur_y + (cur_height as i32 - new_height as i32)
+}
+
+/// 펫 윈도우 height(과 width)을 실제 콘텐츠 크기에 맞춰 줄여서 OS hit-test 가
+/// 잡을 빈 영역 자체를 없앤다. 카드 stack 이 0~5장 변동에 따라 윈도우 위쪽이
+/// 늘었다 줄었다 하지만 발끝 화면 위치(window bottom)는 유지.
+/// frontend ResizeObserver 가 logical px 로 보내고, 여기서 scale_factor 로
+/// physical 환산해 set_size + set_position 한 트랜잭션.
+#[tauri::command]
+fn resize_pet_window(app: AppHandle, width: u32, height: u32) -> Result<(), String> {
+    let Some(window) = app.get_webview_window("main") else {
+        return Ok(());
+    };
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
+    let cur_pos = window.outer_position().map_err(|e| e.to_string())?;
+    let cur_size = window.outer_size().map_err(|e| e.to_string())?;
+    let new_w = ((width as f64) * scale).round() as u32;
+    let new_h = ((height as f64) * scale).round() as u32;
+    let new_y = compute_anchored_y(cur_pos.y, cur_size.height, new_h);
+    window
+        .set_size(tauri::PhysicalSize::new(new_w, new_h))
+        .map_err(|e| e.to_string())?;
+    window
+        .set_position(tauri::PhysicalPosition::new(cur_pos.x, new_y))
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -695,6 +762,8 @@ fn start_api_poller(app: AppHandle) {
                     maybe_popup_settings_for_auth(&app, &err_for_popup);
                 }
             }
+            fetch_and_store_prepaid(&org, &cookie);
+            emit_snapshot(&app);
         }
         std::thread::sleep(Duration::from_secs(30));
     });
@@ -771,6 +840,9 @@ enum TrayMode {
     #[default]
     Fivehour,
     Both,
+    /// 5h + 주간 + prepaid 잔액 달러. prepaid 데이터가 아직 없으면 트레이엔
+    /// `76% · 주 54%`까지만, 들어온 다음 cycle부터 `· $12.34` 합쳐짐.
+    All,
 }
 
 static TRAY_MODE: OnceLock<parking_lot::Mutex<TrayMode>> = OnceLock::new();
@@ -885,6 +957,10 @@ fn build_menu(
         "{} 5h + 주간",
         if mode == TrayMode::Both { "●" } else { "○" }
     );
+    let mode_all_label = format!(
+        "{} 5h + 주간 + $",
+        if mode == TrayMode::All { "●" } else { "○" }
+    );
     let mode_fivehour_item = MenuItem::with_id(
         app,
         "mode-fivehour",
@@ -893,6 +969,7 @@ fn build_menu(
         None::<&str>,
     )?;
     let mode_both_item = MenuItem::with_id(app, "mode-both", &mode_both_label, true, None::<&str>)?;
+    let mode_all_item = MenuItem::with_id(app, "mode-all", &mode_all_label, true, None::<&str>)?;
     let mode_submenu = Submenu::with_id_and_items(
         app,
         "tray-mode",
@@ -901,6 +978,7 @@ fn build_menu(
         &[
             &mode_fivehour_item as &dyn IsMenuItem<Wry>,
             &mode_both_item as &dyn IsMenuItem<Wry>,
+            &mode_all_item as &dyn IsMenuItem<Wry>,
         ],
     )?;
 
@@ -986,6 +1064,9 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
                 }
                 "mode-both" => {
                     let _ = app.emit("tray-set-mode", "both");
+                }
+                "mode-all" => {
+                    let _ = app.emit("tray-set-mode", "all");
                 }
                 "install_update" => {
                     // 사용자가 메뉴를 여러 번 펴서 "설치"를 연타하는 케이스 방어.
@@ -1210,6 +1291,7 @@ pub fn run() {
             claude_projects_path,
             set_tray_title,
             set_tray_icon_for_remaining,
+            resize_pet_window,
             set_active_skin,
             update_tray_accounts,
             update_tray_mode,
@@ -1226,4 +1308,34 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn anchored_y_height_decrease_moves_window_down() {
+        // cur top y=100, height 460 → bottom = 560. 새 height 280 이면 같은
+        // bottom(560)을 유지하려면 new_y = 100 + (460 - 280) = 280.
+        assert_eq!(compute_anchored_y(100, 460, 280), 280);
+    }
+
+    #[test]
+    fn anchored_y_height_increase_moves_window_up() {
+        // cur top y=280, height 280 → bottom = 560. 새 height 460 이면 같은
+        // bottom(560)을 유지하려면 new_y = 280 + (280 - 460) = 100.
+        assert_eq!(compute_anchored_y(280, 280, 460), 100);
+    }
+
+    #[test]
+    fn anchored_y_height_unchanged_keeps_y() {
+        assert_eq!(compute_anchored_y(123, 300, 300), 123);
+    }
+
+    #[test]
+    fn anchored_y_handles_negative_top() {
+        // 멀티 모니터 등으로 cur_y 가 음수일 수 있음. 산식은 그대로.
+        assert_eq!(compute_anchored_y(-50, 400, 200), 150);
+    }
 }

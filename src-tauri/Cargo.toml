@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "1.47.0"
+version = "1.49.0"
 description = "Claude Desk Pet"
 authors = ["you"]
 license = ""
