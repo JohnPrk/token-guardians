@@ -31,6 +31,18 @@ export type UsageSnapshot = {
   api: ApiUsage | null;
   /** Last error string from the API poller, surfaced in Settings. */
   api_error?: string | null;
+  /** 활성 세션 카드 stack. 마지막 assistant 응답이 5분 이내인 세션만, 최신순 정렬,
+   *  Rust 쪽 MAX_ACTIVE_SESSIONS=5로 cap. 빈 배열일 수 있음. */
+  active_sessions: SessionInfo[];
+};
+
+/** 펫 윈도우 위에 카드 1개로 렌더되는 세션 데이터. session_id는 jsonl 파일
+ *  basename(uuid)라 카드 색상 분배(hue 해시)에 쓰인다. */
+export type SessionInfo = {
+  session_id: string;
+  last_user_prompt: string;
+  last_assistant_at: string; // ISO 8601
+  cache_hit: boolean;
 };
 
 export type ApiConfig = {

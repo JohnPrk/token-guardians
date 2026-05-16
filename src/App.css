@@ -1907,11 +1907,87 @@
    윈도우 자체 크기는 그대로 두되, 거품·펫 사이의 시각적으로 빈 공간은
    데스크톱 클릭이 통과되도록 한다. */
 .pet-root,
-.pet-root .bubble-stack {
+.pet-root .bubble-stack,
+.pet-root .session-stack,
+.pet-root .session-card {
   pointer-events: none;
 }
 .pet-root .bubble,
 .pet-root .character {
   pointer-events: auto;
+}
+
+/* ───────── 세션 카드 stack (v1.26+) ─────────
+   여러 Claude Code 세션을 동시에 굴릴 때 각 세션의 prompt cache 5분 카운트다운을
+   펫 위쪽에 카드로 쌓는다. 최신이 위, 최대 5개. 사용자 의도: 모양은 cache 거품과
+   같되 높이만 ~1/2. 폭은 cache 거품과 같이 부모(.pet-content)의 stretch 너비.
+   align-items: center인 부모를 align-self: stretch로 override 해서 .bubble-stack과
+   같은 폭이 나오게 한다. */
+.session-stack {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  align-items: stretch;
+  gap: 3px;
+  z-index: 3;
+}
+
+.session-card {
+  --session-hue: 240;
+  position: relative;
+  background: hsla(var(--session-hue), 30%, 98%, 0.96);
+  border: 1px solid hsla(var(--session-hue), 25%, 78%, 0.5);
+  border-radius: 9px;
+  padding: 3px 8px 4px;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  font-size: 10px;
+  color: #2a2730;
+  overflow: hidden;
+}
+
+.session-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.25;
+}
+
+.session-prompt {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #2a2730;
+}
+
+.session-timer {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 600;
+  font-feature-settings: "tnum";
+  color: hsl(var(--session-hue), 40%, 30%);
+}
+
+/* 카드 하단 진행 바. 5분 시작 시 width 100%, 만료에 가까울수록 0%로 줄어든다.
+   transition은 짧게 둬서 ticker(500ms)와 자연스럽게 이어진다. */
+.session-gauge {
+  margin-top: 6px;
+  height: 5px;
+  background: hsla(var(--session-hue), 18%, 80%, 0.5);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.session-gauge-fill {
+  height: 100%;
+  background: hsl(var(--session-hue), 50%, 50%);
+  transition: width 0.4s linear;
+}
+
+.session-card--expired {
+  opacity: 0.35;
 }
 

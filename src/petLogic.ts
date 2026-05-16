@@ -150,6 +150,49 @@ function clampUnit(v: number): number {
   return v;
 }
 
+/// 문자열(예: 세션 uuid)을 0~359 hue로 결정론적 매핑. 같은 입력은 항상 같은 hue.
+/// 세션 카드 stack에서 카드마다 hsl hue만 다르게 줘서 거품 톤은 유지한 채로
+/// 시각적으로 구분하는 용도. 빈 문자열은 0.
+export function hashHue(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0;
+  }
+  return ((h % 360) + 360) % 360;
+}
+
+export type SessionTimerView = {
+  /** 남은 ms. 0~CACHE_TTL_MS 범위로 클램프됨. */
+  remainMs: number;
+  /** 게이지 width %. 0~100. remainMs / CACHE_TTL_MS * 100. */
+  pct: number;
+  /** "M:SS" 형식 라벨 (1자리 분도 그대로, 초만 0 padding). */
+  label: string;
+  /** 남은 시간 0이면 true. expired 카드를 fade 처리할 때 사용. */
+  expired: boolean;
+};
+
+/// 세션 카드에 표시할 카운트다운(남은 ms / 게이지 width / "M:SS" 라벨)을 계산.
+/// React 컴포넌트 안에 inline으로 박으면 단위 테스트 어려워서 헬퍼로 분리.
+export function computeSessionTimer(
+  lastAssistantIso: string,
+  nowMs: number,
+): SessionTimerView {
+  const lastMs = Date.parse(lastAssistantIso);
+  const elapsed = Math.max(0, nowMs - (Number.isFinite(lastMs) ? lastMs : nowMs));
+  const remainMs = Math.max(0, Math.min(CACHE_TTL_MS, CACHE_TTL_MS - elapsed));
+  const pct = (remainMs / CACHE_TTL_MS) * 100;
+  const remainSec = Math.ceil(remainMs / 1000);
+  const mins = Math.floor(remainSec / 60);
+  const secs = remainSec % 60;
+  return {
+    remainMs,
+    pct,
+    label: `${mins}:${secs.toString().padStart(2, "0")}`,
+    expired: remainMs <= 0,
+  };
+}
+
 export function formatResetCountdown(ms: number): string {
   if (ms <= 0) return "곧 초기화";
   const totalMin = Math.floor(ms / 60000);

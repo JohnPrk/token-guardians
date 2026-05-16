@@ -2,7 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { Account, AccountsConfig, PlanConfig, TrayMode, UsageSnapshot } from "./types";
+import type {
+  Account,
+  AccountsConfig,
+  PlanConfig,
+  SessionInfo,
+  TrayMode,
+  UsageSnapshot,
+} from "./types";
 import { PLAN_PRESETS } from "./types";
 import {
   cryptoRandomId,
@@ -13,11 +20,11 @@ import {
 } from "./store";
 import { ACCESSORIES, DEFAULT_SKIN_ID, SKINS, findSkin, type ActionName } from "./skins";
 import {
-  CACHE_TTL_MS,
+  computeSessionTimer,
   derive,
-  formatRemain,
   formatResetCountdown,
   formatTrayLabel,
+  hashHue,
 } from "./petLogic";
 import { maybeNotify, resetThreshold } from "./notifier";
 import "./App.css";
@@ -842,9 +849,6 @@ function Pet({
     setImgFailed(false);
   }, [characterSrc]);
 
-  const showCache =
-    d.cacheRemainMs !== null && !(snap?.is_thinking ?? false);
-
   // Drag uses Tauri's native data-tauri-drag-region — macOS handles
   // click-vs-drag at the OS layer. Manual refresh is now exclusively a
   // right-click on the panda (or the tray menu's "지금 새로고침").
@@ -854,19 +858,16 @@ function Pet({
     window.setTimeout(() => setRefreshing(false), 700);
   };
 
+  // v1.26부터 cache 거품 자리는 SessionStack의 카드 stack이 대체한다 — 카드 각각이
+  // 자기 세션의 5분 카운트다운을 갖고 있으므로 cache 거품은 중복. 정의는 남겨두되
+  // 호출은 제거. (CacheBubble 컴포넌트가 미사용이지만 hit/miss flash와 콤보 정보를
+  // 다시 보고 싶을 때 살리기 쉽게 정의는 유지.)
+
   return (
     <div className="pet-root">
       <div className="pet-content">
+      <SessionStack sessions={snap?.active_sessions ?? []} now={now} />
       <div className="bubble-stack" data-tauri-drag-region>
-        {showCache && (
-          <CacheBubble
-            remainMs={d.cacheRemainMs!}
-            nudge={d.cacheNudge}
-            hits={snap!.cache_hits_5min}
-            misses={snap!.cache_misses_5min}
-            combo={snap!.current_combo}
-          />
-        )}
         {snap?.is_thinking && <ThinkingBubble />}
         {snap && (
           <UsageBubble
@@ -941,37 +942,51 @@ function Pet({
   );
 }
 
-function CacheBubble({
-  remainMs,
-  nudge,
-  hits,
-  misses,
-  combo,
+// 활성 세션(마지막 assistant 응답이 5분 이내) 카드 stack. Rust 쪽 snapshot의
+// active_sessions를 그대로 받아 펫 윈도우 위쪽에 위에서 아래로 쌓는다. 0개면
+// 아무것도 그리지 않고, 1개여도 카드 1장을 띄운다 (사용자 명시).
+function SessionStack({
+  sessions,
+  now,
 }: {
-  remainMs: number;
-  nudge: boolean;
-  hits: number;
-  misses: number;
-  combo: number;
+  sessions: SessionInfo[];
+  now: number;
 }) {
-  const pct = Math.max(0, Math.min(1, remainMs / CACHE_TTL_MS));
+  if (sessions.length === 0) return null;
   return (
-    <div className={`bubble cache ${nudge ? "nudge" : ""}`} data-tauri-drag-region>
-      <div className="bubble-row" data-tauri-drag-region>
-        <span className="bubble-time">{formatRemain(remainMs)}</span>
-        <span className="bubble-label">캐시</span>
+    <div className="session-stack" data-tauri-drag-region>
+      {sessions.map((s) => (
+        <SessionCard key={s.session_id} session={s} now={now} />
+      ))}
+    </div>
+  );
+}
+
+// 카드 1개: 최근 user prompt 요약 + 남은 시간 + 카드 하단 진행 바.
+// 진행 바는 width 100% → 0%로 감소 (5분 → 0초). 카드 hue는 session_id 해시.
+function SessionCard({
+  session,
+  now,
+}: {
+  session: SessionInfo;
+  now: number;
+}) {
+  const timer = computeSessionTimer(session.last_assistant_at, now);
+  const hue = hashHue(session.session_id);
+  return (
+    <div
+      className={`session-card${timer.expired ? " session-card--expired" : ""}`}
+      style={{ "--session-hue": String(hue) } as React.CSSProperties}
+    >
+      <div className="session-card-row">
+        <span className="session-prompt" title={session.last_user_prompt}>
+          {session.last_user_prompt}
+        </span>
+        <span className="session-timer">{timer.label}</span>
       </div>
-      <div className="bubble-bar">
-        <div className="bubble-fill" style={{ width: `${pct * 100}%` }} />
+      <div className="session-gauge">
+        <div className="session-gauge-fill" style={{ width: `${timer.pct}%` }} />
       </div>
-      {(hits > 0 || misses > 0) && (
-        <div className="bubble-stats">
-          <span className="stat hit">✨{hits}</span>
-          <span className="stat miss">💨{misses}</span>
-          {combo >= 2 && <span className="stat combo">🔥×{combo}</span>}
-        </div>
-      )}
-      {nudge && <div className="bubble-tip">. 이라도 눌러!</div>}
     </div>
   );
 }

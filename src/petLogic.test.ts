@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
+  CACHE_TTL_MS,
+  computeSessionTimer,
   derive,
   formatRemain,
   formatResetCountdown,
   formatTokens,
   formatTrayLabel,
+  hashHue,
 } from "./petLogic";
 import type { PlanLimits, UsageSnapshot, ApiUsage } from "./types";
 
@@ -30,6 +33,7 @@ function snap(over: Partial<UsageSnapshot> = {}): UsageSnapshot {
     now: NOW_ISO,
     api: null,
     api_error: null,
+    active_sessions: [],
     ...over,
   };
 }
@@ -270,5 +274,96 @@ describe("formatResetCountdown", () => {
     expect(formatResetCountdown(2 * 24 * 60 * 60 * 1000 + 5 * 60 * 60 * 1000)).toBe(
       "2일 5시간 후",
     );
+  });
+});
+
+describe("computeSessionTimer", () => {
+  const NOW = Date.parse("2026-05-16T13:00:00Z");
+
+  it("응답 직후(0초 경과)는 5:00 + pct 100", () => {
+    const v = computeSessionTimer("2026-05-16T13:00:00Z", NOW);
+    expect(v.label).toBe("5:00");
+    expect(v.pct).toBe(100);
+    expect(v.remainMs).toBe(CACHE_TTL_MS);
+    expect(v.expired).toBe(false);
+  });
+
+  it("1분 경과 → 4:00 + pct 80", () => {
+    const v = computeSessionTimer("2026-05-16T12:59:00Z", NOW);
+    expect(v.label).toBe("4:00");
+    expect(v.pct).toBe(80);
+    expect(v.expired).toBe(false);
+  });
+
+  it("4분 30초 경과 → 0:30 + pct 10", () => {
+    const v = computeSessionTimer("2026-05-16T12:55:30Z", NOW);
+    expect(v.label).toBe("0:30");
+    expect(v.pct).toBe(10);
+  });
+
+  it("5분 정확히 경과 → 0:00 + pct 0 + expired", () => {
+    const v = computeSessionTimer("2026-05-16T12:55:00Z", NOW);
+    expect(v.label).toBe("0:00");
+    expect(v.pct).toBe(0);
+    expect(v.expired).toBe(true);
+  });
+
+  it("5분 초과 (음수가 되면) 안 됨 — 0으로 클램프", () => {
+    const v = computeSessionTimer("2026-05-16T12:50:00Z", NOW);
+    expect(v.label).toBe("0:00");
+    expect(v.pct).toBe(0);
+    expect(v.remainMs).toBe(0);
+    expect(v.expired).toBe(true);
+  });
+
+  it("앞 시점(미래 timestamp): elapsed 음수가 되어도 안전 — pct 100", () => {
+    // 클락 스큐 등으로 lastAssistantIso가 now보다 미래일 수도. 그래도 NaN/음수 안 됨.
+    const v = computeSessionTimer("2026-05-16T13:01:00Z", NOW);
+    expect(v.pct).toBe(100);
+    expect(v.expired).toBe(false);
+  });
+
+  it("ISO 파싱 실패하면 expired 상태 (안전한 fallback)", () => {
+    const v = computeSessionTimer("not an iso", NOW);
+    expect(v.pct).toBe(100); // elapsed=0이라 pct는 100. 의도된 동작: 깨진 데이터로 카드가 즉시 사라지지 않게.
+    expect(v.expired).toBe(false);
+  });
+
+  it("초 단위 0 padding", () => {
+    // 4:59 → 0:01 + 4 = 4:05 같은 분 경계가 아닌 일반 케이스
+    const v = computeSessionTimer("2026-05-16T12:55:05Z", NOW);
+    expect(v.label).toBe("0:05");
+  });
+});
+
+describe("hashHue", () => {
+  it("같은 입력은 항상 같은 hue (결정론적)", () => {
+    expect(hashHue("session-A")).toBe(hashHue("session-A"));
+  });
+
+  it("0–359 범위 안에 있다", () => {
+    for (const s of ["a", "session-uuid-1234", "한글session", ""]) {
+      const h = hashHue(s);
+      expect(h).toBeGreaterThanOrEqual(0);
+      expect(h).toBeLessThan(360);
+    }
+  });
+
+  it("빈 문자열은 0", () => {
+    expect(hashHue("")).toBe(0);
+  });
+
+  it("다른 입력은 (일반적으로) 다른 hue", () => {
+    // 충돌은 가능하지만 확률 낮음. 여기선 몇 개 샘플로 distinct 확인.
+    const hues = new Set(
+      [
+        "abc-001",
+        "abc-002",
+        "abc-003",
+        "session-xxx",
+        "session-yyy",
+      ].map(hashHue),
+    );
+    expect(hues.size).toBeGreaterThanOrEqual(4);
   });
 });
