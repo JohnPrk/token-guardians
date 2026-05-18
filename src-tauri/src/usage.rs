@@ -784,4 +784,188 @@ mod tests {
     fn extract_user_prompt_returns_none_when_content_missing() {
         assert_eq!(extract_user_prompt_text(None), None);
     }
+
+    // ===== 추가 회귀 케이스 (v1.51 테스트 커버리지 보강) =====
+
+    #[test]
+    fn has_tool_result_false_when_array_is_empty() {
+        let v = json!([]);
+        assert!(!has_tool_result(Some(&v)));
+    }
+
+    #[test]
+    fn has_tool_result_true_when_first_item_is_tool_result() {
+        let v = json!([{"type": "tool_result"}, {"type": "text"}]);
+        assert!(has_tool_result(Some(&v)));
+    }
+
+    #[test]
+    fn has_tool_result_true_when_multiple_tool_results_present() {
+        let v = json!([{"type": "tool_result"}, {"type": "tool_result"}]);
+        assert!(has_tool_result(Some(&v)));
+    }
+
+    #[test]
+    fn has_tool_result_ignores_item_without_type_field() {
+        // 일부 entry가 type 필드 누락이어도 다른 항목이 tool_result면 true.
+        let v = json!([{"foo": "bar"}, {"type": "tool_result"}]);
+        assert!(has_tool_result(Some(&v)));
+    }
+
+    #[test]
+    fn five_hour_window_returns_none_at_exact_5h_boundary() {
+        // 윈도우는 [start, start+5h) 반열림. now == start+5h 면 만료 처리.
+        let e1 = assistant("2026-05-16T10:00:00Z");
+        let now = ts("2026-05-16T15:00:00Z"); // 정확히 +5h
+        assert_eq!(five_hour_window_start(&[&e1], now), None);
+    }
+
+    #[test]
+    fn five_hour_window_includes_message_exactly_at_5h_boundary_as_new_window() {
+        // 10:00 첫 메시지 → [10:00, 15:00). 15:00 정확히 도착한 메시지는
+        // 옛 윈도우 밖이므로 새 윈도우([15:00, 20:00))를 anchor 한다.
+        let e1 = assistant("2026-05-16T10:00:00Z");
+        let e2 = assistant("2026-05-16T15:00:00Z");
+        let now = ts("2026-05-16T16:00:00Z");
+        let start = five_hour_window_start(&[&e1, &e2], now);
+        assert_eq!(start, Some(ts("2026-05-16T15:00:00Z")));
+    }
+
+    #[test]
+    fn five_hour_window_chains_three_consecutive_windows() {
+        // 윈도우 3개 연쇄: 10:00 → 15:30(2번째) → 21:00(3번째)
+        let e1 = assistant("2026-05-16T10:00:00Z");
+        let e2 = assistant("2026-05-16T15:30:00Z"); // 1번째 만료 → 새 윈도우
+        let e3 = assistant("2026-05-16T21:00:00Z"); // 2번째 만료 → 새 윈도우
+        let now = ts("2026-05-16T22:00:00Z");
+        let start = five_hour_window_start(&[&e1, &e2, &e3], now);
+        assert_eq!(start, Some(ts("2026-05-16T21:00:00Z")));
+    }
+
+    #[test]
+    fn five_hour_window_single_entry_within_5h() {
+        let e1 = assistant("2026-05-16T11:00:00Z");
+        let now = ts("2026-05-16T13:00:00Z"); // +2h
+        let start = five_hour_window_start(&[&e1], now);
+        assert_eq!(start, Some(ts("2026-05-16T11:00:00Z")));
+    }
+
+    #[test]
+    fn next_weekday_at_returns_next_friday_06_kst_from_thursday() {
+        // 실제 사용 케이스: Anthropic weekly reset 은 금요일 06:00 KST.
+        // KST 목요일 12:00 → 다음 금요일 06:00 KST 반환.
+        // 목요일 12:00 KST = 목요일 03:00 UTC. 다음 금요일 06:00 KST = 금요일 -3:00 UTC = 금요일 새벽
+        // (목요일 자정 KST = 목요일 15:00 UTC 의 다음날인 금요일 21:00 UTC).
+        let now_utc = ts("2026-05-21T03:00:00Z"); // 목요일 12:00 KST
+        let target = next_weekday_at(now_utc, Weekday::Fri, 6, 0);
+        // 금요일 06:00 KST = 금요일 -3:00 UTC = 목요일 21:00 UTC
+        assert_eq!(target, ts("2026-05-21T21:00:00Z"));
+    }
+
+    #[test]
+    fn next_weekday_at_same_weekday_exact_time_jumps_to_next_week() {
+        // KST 월요일 09:00 정각에 호출 + target 월요일 09:00 → candidate <= now 이므로
+        // 다음 주로 점프해야 함. (정확히 같은 시각도 "이미 지나간 것"으로 본다.)
+        let now_utc = ts("2026-05-18T00:00:00Z"); // 월요일 09:00 KST 정각
+        let target = next_weekday_at(now_utc, Weekday::Mon, 9, 0);
+        assert_eq!(target, ts("2026-05-25T00:00:00Z"));
+    }
+
+    #[test]
+    fn group_into_sessions_keeps_session_with_assistant_at_exact_cutoff() {
+        // assistant 가 정확히 cutoff(now - 5분) 시각이면 active 유지.
+        // 코드 조건: `asst.timestamp < cutoff` 이면 drop 이므로, == 은 keep.
+        let entries = vec![
+            user_prompt_in("2026-05-16T12:54:00Z", "S", "경계"),
+            assistant_in("2026-05-16T12:55:00Z", "S", false),
+        ];
+        let now = ts("2026-05-16T13:00:00Z"); // cutoff 정확히 12:55:00
+        let sessions = group_into_sessions(&entries, now);
+        assert_eq!(sessions.len(), 1);
+    }
+
+    #[test]
+    fn group_into_sessions_orders_strictly_by_last_assistant_time_desc() {
+        // 세 세션, 마지막 assistant 시각이 가까이 붙어 있어도 정확히 desc 정렬.
+        let entries = vec![
+            user_prompt_in("2026-05-16T12:58:00Z", "A", "qA"),
+            assistant_in("2026-05-16T12:58:30Z", "A", false),
+            user_prompt_in("2026-05-16T12:59:00Z", "B", "qB"),
+            assistant_in("2026-05-16T12:59:30Z", "B", true),
+            user_prompt_in("2026-05-16T12:59:15Z", "C", "qC"),
+            assistant_in("2026-05-16T12:59:45Z", "C", false),
+        ];
+        let now = ts("2026-05-16T13:00:00Z");
+        let sessions = group_into_sessions(&entries, now);
+        assert_eq!(sessions[0].session_id, "C"); // 12:59:45 가장 최신
+        assert_eq!(sessions[1].session_id, "B"); // 12:59:30
+        assert_eq!(sessions[2].session_id, "A"); // 12:58:30
+    }
+
+    #[test]
+    fn group_into_sessions_carries_cache_hit_flag_of_latest_assistant() {
+        // 마지막 assistant 의 cache_hit 값이 SessionInfo.cache_hit 으로 전달된다.
+        // 같은 세션 안에 hit 과 miss 가 섞여 있어도 *마지막* 응답만 반영.
+        let entries = vec![
+            user_prompt_in("2026-05-16T12:58:00Z", "X", "q1"),
+            assistant_in("2026-05-16T12:58:30Z", "X", true), // miss 처럼 보이지만 다음 asst 가 결정
+            user_prompt_in("2026-05-16T12:59:00Z", "X", "q2"),
+            assistant_in("2026-05-16T12:59:30Z", "X", false),
+        ];
+        let now = ts("2026-05-16T13:00:00Z");
+        let sessions = group_into_sessions(&entries, now);
+        assert_eq!(sessions.len(), 1);
+        assert!(!sessions[0].cache_hit); // 마지막 응답 cache_hit=false
+    }
+
+    #[test]
+    fn truncate_prompt_empty_string_returns_empty() {
+        assert_eq!(truncate_prompt("", 10), "");
+    }
+
+    #[test]
+    fn truncate_prompt_only_whitespace_collapses_to_empty() {
+        // split_whitespace + join(" ") 흐름에서 공백만 들어오면 빈 문자열.
+        assert_eq!(truncate_prompt("   \n\t  ", 10), "");
+    }
+
+    #[test]
+    fn truncate_prompt_with_zero_max_chars_returns_just_ellipsis_for_non_empty_input() {
+        // max_chars=0 + 비어 있지 않은 입력 → 0자 + … = "…"
+        // 빈 입력은 그대로 빈 문자열 (chars().count() == 0 == max).
+        assert_eq!(truncate_prompt("a", 0), "…");
+        assert_eq!(truncate_prompt("", 0), "");
+    }
+
+    #[test]
+    fn truncate_prompt_exactly_at_max_chars_no_ellipsis() {
+        // 정확히 max_chars면 ellipsis 안 붙음.
+        assert_eq!(truncate_prompt("0123456789", 10), "0123456789");
+    }
+
+    #[test]
+    fn extract_user_prompt_from_array_picks_first_text_block() {
+        // text 블록이 여러 개면 첫 번째.
+        let v = serde_json::json!([
+            {"type": "text", "text": "first"},
+            {"type": "text", "text": "second"},
+        ]);
+        assert_eq!(
+            extract_user_prompt_text(Some(&v)),
+            Some("first".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_user_prompt_skips_non_text_items_before_text() {
+        // tool_result 등 다른 타입이 먼저 와도 text 블록은 발견한다.
+        let v = serde_json::json!([
+            {"type": "tool_result", "content": "x"},
+            {"type": "text", "text": "the prompt"},
+        ]);
+        assert_eq!(
+            extract_user_prompt_text(Some(&v)),
+            Some("the prompt".to_string())
+        );
+    }
 }

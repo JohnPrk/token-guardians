@@ -219,4 +219,125 @@ mod tests {
             Some("real-uuid")
         );
     }
+
+    // ===== 추가 회귀 케이스 (v1.51 테스트 커버리지 보강) =====
+
+    #[test]
+    fn parse_raw_cookie_header_value_can_be_empty_string() {
+        // name= (값 비어있음) 도 paste 시 실재. 그대로 보존.
+        let raw = "empty=; name=value";
+        let parsed = parse_raw_cookie_header(raw);
+        assert_eq!(
+            parsed,
+            vec![
+                ("empty".to_string(), "".to_string()),
+                ("name".to_string(), "value".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_raw_cookie_header_handles_trailing_semicolon() {
+        let raw = "name=value;";
+        let parsed = parse_raw_cookie_header(raw);
+        assert_eq!(parsed, vec![("name".to_string(), "value".to_string())]);
+    }
+
+    #[test]
+    fn parse_raw_cookie_header_handles_leading_semicolons() {
+        let raw = ";;sessionKey=abc";
+        let parsed = parse_raw_cookie_header(raw);
+        assert_eq!(parsed, vec![("sessionKey".to_string(), "abc".to_string())]);
+    }
+
+    #[test]
+    fn parse_raw_cookie_header_value_with_special_chars_preserved() {
+        // 실제 sessionKey 는 base64-ish 문자 + . + - 등을 포함.
+        let raw = "sessionKey=sk-ant-sid02-AbC123.xy_z-9; foo=bar";
+        let parsed = parse_raw_cookie_header(raw);
+        assert_eq!(parsed[0].1, "sk-ant-sid02-AbC123.xy_z-9");
+    }
+
+    #[test]
+    fn parse_raw_cookie_header_duplicates_keep_both() {
+        // 같은 이름이 두 번 들어오면 둘 다 보존 (parsing 단계는 dedupe 안 함).
+        // 이후 build_cookie_header 의 find() 가 첫 매치만 골라서 자연 dedupe.
+        let raw = "sessionKey=first; sessionKey=second";
+        let parsed = parse_raw_cookie_header(raw);
+        assert_eq!(parsed.len(), 2);
+    }
+
+    #[test]
+    fn build_cookie_header_picks_first_when_duplicate_required_name() {
+        // parse 가 중복 보존했어도 build 가 첫 매치만 사용.
+        let cookies = vec![
+            ("sessionKey".into(), "first".into()),
+            ("sessionKey".into(), "second".into()),
+        ];
+        assert_eq!(build_cookie_header(&cookies), "sessionKey=first");
+    }
+
+    #[test]
+    fn build_cookie_header_partial_subset_preserves_order() {
+        // 5개 중 일부만 있어도 REQUIRED_COOKIE_NAMES 순서를 유지.
+        let cookies = vec![
+            ("routingHint".into(), "rh".into()),
+            ("sessionKey".into(), "sk".into()),
+            ("_cfuvid".into(), "u".into()),
+        ];
+        let out = build_cookie_header(&cookies);
+        // 순서: sessionKey → _cfuvid → routingHint (REQUIRED_COOKIE_NAMES 순)
+        assert_eq!(out, "sessionKey=sk; _cfuvid=u; routingHint=rh");
+    }
+
+    #[test]
+    fn has_required_cookies_ignores_other_required_names_alone() {
+        // sessionKey 가 핵심. 나머지 4개만 있으면 false.
+        let cookies = vec![
+            ("cf_clearance".into(), "c".into()),
+            ("__cf_bm".into(), "b".into()),
+            ("_cfuvid".into(), "u".into()),
+            ("routingHint".into(), "rh".into()),
+        ];
+        assert!(!has_required_cookies(&cookies));
+    }
+
+    #[test]
+    fn extract_org_id_returns_none_when_not_an_array() {
+        // 단일 객체 형태가 흘러오면 (다른 endpoint 응답 혼동 등) None.
+        let json = r#"{"uuid": "xxx", "name": "single"}"#;
+        assert_eq!(extract_org_id_from_orgs_json(json), None);
+    }
+
+    #[test]
+    fn extract_org_id_skips_items_without_uuid_field() {
+        let json = r#"[{"name":"NoUuid"},{"uuid":"good-uuid"}]"#;
+        assert_eq!(
+            extract_org_id_from_orgs_json(json).as_deref(),
+            Some("good-uuid")
+        );
+    }
+
+    #[test]
+    fn extract_org_id_skips_non_string_uuid_field() {
+        // uuid 가 숫자나 객체로 흘러오면 string 변환 실패 → 다음 item.
+        let json = r#"[{"uuid":12345},{"uuid":"real-one"}]"#;
+        assert_eq!(
+            extract_org_id_from_orgs_json(json).as_deref(),
+            Some("real-one")
+        );
+    }
+
+    #[test]
+    fn parse_then_build_picks_only_required_even_with_garbage_extras() {
+        // _ga, _pendo_* 같은 잡쿠키 섞여 있어도 5종만.
+        let raw = "_ga=GA1.1.xxx; sessionKey=sk; _pendo_visitorId.tenant-abc=v; cf_clearance=c; \
+                   _gid=GA1.1.yyy; __cf_bm=b; _cfuvid=u; routingHint=[rh]; intercom-id=foo";
+        let parsed = parse_raw_cookie_header(raw);
+        let header = build_cookie_header(&parsed);
+        assert_eq!(
+            header,
+            "sessionKey=sk; cf_clearance=c; __cf_bm=b; _cfuvid=u; routingHint=[rh]"
+        );
+    }
 }

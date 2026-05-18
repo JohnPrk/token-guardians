@@ -109,6 +109,11 @@ export type PlanConfig = {
    *  v1.25부터 사용자가 트레이 메뉴 "표시 모드 ▸"에서 토글 가능. legacy store에는
    *  이 필드가 없을 수 있어 loadPlanConfig가 기본값을 채워준다. */
   trayMode?: TrayMode;
+  /** 펫 윈도우 전체 zoom 배율 (v1.70+). 펫·UsageBubble·세션 stack 모두 같이 scale.
+   *  사용자가 펫 우하단 그립을 드래그해서 조정. 범위는 PET_SCALE_MIN ~ PET_SCALE_MAX
+   *  (petLogic.ts 의 clampScale 이 강제). 기본 1.0. legacy store에는 없을 수
+   *  있어 loadPlanConfig가 1.0 으로 채운다. */
+  petScale?: number;
 };
 
 export type TrayMode = "fivehour" | "both" | "all";

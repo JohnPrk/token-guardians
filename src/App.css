@@ -89,6 +89,8 @@
 
 /* ===== Pet ===== */
 .pet-root {
+  /* position: relative — resize-handle 의 absolute anchor. 핸들을 여기 두면
+     zoom 적용된 .pet-content 와 분리되어 윈도우 우하단에 항상 고정된다. */
   position: relative;
   width: 100%;
   height: 100%;
@@ -100,14 +102,28 @@
   box-sizing: border-box;
 }
 
-/* Tight content wrapper — 말풍선+펫을 하나로 묶는 fit-content 컨테이너.
-   마우스 passthrough 경계 시각화 및 클릭 영역 기준으로 사용. */
+/* v1.70+: 두 wrapper 구조 — 외곽 .pet-content 는 명시적 px 박스(scale 곱한
+   윈도우 크기 기준), 내부 .pet-content-inner 는 transform: scale 로 시각 표현.
+   webkit 의 `zoom` 이 layout box 를 같이 안 바꿔서 ResizeObserver 가 발화 못
+   하던 회귀 해소. inner 의 *unscaled* 크기를 ResizeObserver 로 측정 → React
+   state → outer 의 width/height inline 으로 박힌다. */
 .pet-content {
+  display: block;
+  position: relative;
+  /* width/height 는 inline style 로 명시(innerSize × scale). innerSize=0 인
+     첫 frame 에선 inline 없이 fit-content 처럼 동작하도록 max-content 폴백. */
+  width: max-content;
+}
+.pet-content-inner {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: fit-content;
+  width: max-content;
   gap: 8px;
+  transform-origin: top left;
+  /* resize-handle 의 absolute anchor — 핸들이 inner 우하단(= 캐릭터 발 옆)에
+     붙고 transform 변환은 같이 받지만 counter-scale 로 크기 일정. */
+  position: relative;
 }
 
 /* Stack of bubbles above the head. align-items:stretch so every bubble
@@ -2008,13 +2024,15 @@
    (data-tauri-drag-region). 카드 사이 갭은 .session-stack이 none이라 통과. */
 .pet-root,
 .pet-root .pet-content,
+.pet-root .pet-content-inner,
 .pet-root .bubble-stack,
 .pet-root .session-stack {
   pointer-events: none;
 }
 .pet-root .bubble,
 .pet-root .character,
-.pet-root .session-card {
+.pet-root .session-card,
+.pet-root .resize-handle {
   pointer-events: auto;
 }
 .pet-root .session-card {
@@ -2022,6 +2040,58 @@
 }
 .pet-root .session-card:active {
   cursor: grabbing;
+}
+
+/* ───────── 펫 발 옆 resize 그립 (v1.70+) ─────────
+   .pet-content-inner 의 우하단(= 캐릭터 발 옆)에 absolute. inner 의 transform:
+   scale 을 같이 받지만 핸들 자체에 counter-scale(1/scale + transform-origin:
+   bottom right) 을 inline 으로 적용해 크기는 일정 유지. 위치는 펫 크기에 따라
+   자연스럽게 이동, 크기는 안 흔들림(2026-05-18 사용자 정정 두 번 반영). */
+.resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: nwse-resize;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(60, 50, 80, 0.22);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: background 120ms ease, box-shadow 120ms ease;
+  z-index: 50;
+  touch-action: none;
+  user-select: none;
+}
+.resize-handle:hover {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+.resize-handle:active {
+  background: rgba(255, 255, 255, 1);
+  transform: scale(1.06);
+}
+.resize-icon {
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 800;
+  color: rgba(60, 50, 80, 0.7);
+  /* macOS 기본 폰트에서도 ↘ 가 또렷이 보이도록 굵게 + 약간의 그림자 */
+  text-shadow: 0 0.5px 0 rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  display: inline-block;
+  transform: translate(0.5px, 0.5px);
+}
+.resize-handle:hover .resize-icon,
+.resize-handle:active .resize-icon {
+  color: rgba(30, 20, 50, 0.95);
+}
+
+.pet-content {
+  position: relative; /* resize-handle 의 absolute anchor */
 }
 
 /* ───────── 세션 카드 stack (v1.26+) ─────────

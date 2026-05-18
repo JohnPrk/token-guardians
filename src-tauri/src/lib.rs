@@ -584,6 +584,39 @@ pub fn compute_anchored_y(cur_y: i32, cur_height: u32, new_height: u32) -> i32 {
     cur_y + (cur_height as i32 - new_height as i32)
 }
 
+/// 윈도우 top y 를 모니터 활성 영역 안으로 cap. v1.70 에서 펫 zoom 키울 때 카드
+/// stack 이 화면 메뉴바 위로 잘리는 회귀 차단(2026-05-18 사용자 보고). 모니터
+/// top + 메뉴바 inset 보다 위로 가지 않게 강제 — bottom anchor 가 양보되고
+/// 발끝이 화면 하단 쪽으로 이동하지만, 카드/핸들이 보이는 게 우선.
+pub fn cap_window_top(new_y: i32, monitor_top: i32, top_inset: i32) -> i32 {
+    let safe_top = monitor_top + top_inset;
+    new_y.max(safe_top)
+}
+
+/// 윈도우 우측이 모니터 우측 경계를 넘어가면 좌측으로 밀어 cap. 같은 v1.70
+/// 회귀 대응. 펫이 화면 우측 끝에 있고 zoom 키워서 .pet-content 폭이 늘어나면
+/// resize 핸들이 화면 우측 밖으로 빠지는 케이스를 방지.
+pub fn cap_window_right(
+    new_x: i32,
+    new_w: u32,
+    monitor_x: i32,
+    monitor_w: u32,
+    right_inset: i32,
+) -> i32 {
+    let safe_right = monitor_x + monitor_w as i32 - right_inset;
+    let cur_right = new_x + new_w as i32;
+    if cur_right > safe_right {
+        safe_right - new_w as i32
+    } else {
+        new_x
+    }
+}
+
+/// macOS 메뉴바 표준 높이(logical px). NSStatusBar.systemStatusBar.thickness 가
+/// 대략 24px. Tauri 2 의 Monitor API 는 visibleFrame(메뉴바 제외)을 직접 노출하지
+/// 않아서 상수로 박는다. Retina 등 scale 환산은 호출처에서.
+const MACOS_MENU_BAR_LOGICAL: f64 = 24.0;
+
 /// 펫 윈도우 height(과 width)을 실제 콘텐츠 크기에 맞춰 줄여서 OS hit-test 가
 /// 잡을 빈 영역 자체를 없앤다. 카드 stack 이 0~5장 변동에 따라 윈도우 위쪽이
 /// 늘었다 줄었다 하지만 발끝 화면 위치(window bottom)는 유지.
@@ -599,12 +632,37 @@ fn resize_pet_window(app: AppHandle, width: u32, height: u32) -> Result<(), Stri
     let cur_size = window.outer_size().map_err(|e| e.to_string())?;
     let new_w = ((width as f64) * scale).round() as u32;
     let new_h = ((height as f64) * scale).round() as u32;
-    let new_y = compute_anchored_y(cur_pos.y, cur_size.height, new_h);
+    let mut new_y = compute_anchored_y(cur_pos.y, cur_size.height, new_h);
+    let mut new_x = cur_pos.x;
+
+    // 모니터 영역으로 cap (v1.70 회귀 — zoom max 에서 카드/핸들이 화면 밖으로
+    // 빠지는 문제). current_monitor 가 NSPanel 펫에서 None 을 흘리는 케이스가
+    // 사용자 보고로 확인됨(2026-05-18). primary_monitor → available_monitors[0]
+    // 까지 단계적 fallback 으로 monitor 객체를 무조건 잡는다.
+    let monitor = window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| app.primary_monitor().ok().flatten())
+        .or_else(|| {
+            app.available_monitors()
+                .ok()
+                .and_then(|ms| ms.into_iter().next())
+        });
+    if let Some(monitor) = monitor {
+        let m_pos = monitor.position();
+        let m_size = monitor.size();
+        let top_inset = (MACOS_MENU_BAR_LOGICAL * scale).round() as i32;
+        new_y = cap_window_top(new_y, m_pos.y, top_inset);
+        // right_inset 8px 여유 — 핸들이 우측 화면 끝에 딱 붙는 것보다 살짝 안쪽
+        new_x = cap_window_right(new_x, new_w, m_pos.x, m_size.width, (8.0 * scale).round() as i32);
+    }
+
     window
         .set_size(tauri::PhysicalSize::new(new_w, new_h))
         .map_err(|e| e.to_string())?;
     window
-        .set_position(tauri::PhysicalPosition::new(cur_pos.x, new_y))
+        .set_position(tauri::PhysicalPosition::new(new_x, new_y))
         .map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -1462,5 +1520,138 @@ mod tests {
     fn anchored_y_handles_negative_top() {
         // 멀티 모니터 등으로 cur_y 가 음수일 수 있음. 산식은 그대로.
         assert_eq!(compute_anchored_y(-50, 400, 200), 150);
+    }
+
+    // ===== 추가 회귀 케이스 (v1.51 테스트 커버리지 보강) =====
+
+    #[test]
+    fn anchored_y_zero_height_to_normal() {
+        // cur_height=0 (윈도우 초기화 직후 같은 corner case) → 단순 산식.
+        assert_eq!(compute_anchored_y(100, 0, 400), -300);
+    }
+
+    #[test]
+    fn anchored_y_to_zero_height() {
+        // new_height=0 (콘텐츠 측정 실패) → cur 위치 + cur_height 만큼 아래로.
+        assert_eq!(compute_anchored_y(100, 460, 0), 560);
+    }
+
+    #[test]
+    fn anchored_y_large_values_no_overflow() {
+        // i32 산식이 u32 → i32 캐스팅을 거치므로 일반적인 디스플레이 크기에선 안전.
+        assert_eq!(compute_anchored_y(2000, 1000, 500), 2500);
+    }
+
+    #[test]
+    fn anchored_y_preserves_bottom_invariant() {
+        // 산식의 핵심 invariant: cur_y + cur_h == new_y + new_h (bottom 보존).
+        let cases = [(100i32, 460u32, 280u32), (50, 300, 800), (-20, 500, 200)];
+        for (y, ch, nh) in cases {
+            let ny = compute_anchored_y(y, ch, nh);
+            assert_eq!(y + ch as i32, ny + nh as i32);
+        }
+    }
+
+    // ===== is_auth_failure (rate-limit 알림 / 설정창 자동 팝업 분기) =====
+
+    #[test]
+    fn is_auth_failure_matches_401() {
+        assert!(is_auth_failure("HTTP 401 unauthorized"));
+    }
+
+    #[test]
+    fn is_auth_failure_matches_403() {
+        assert!(is_auth_failure("HTTP 403 forbidden"));
+    }
+
+    #[test]
+    fn is_auth_failure_matches_404() {
+        // 404 도 인증 경로 변경 또는 org 미존재로 보고 설정 팝업 트리거.
+        assert!(is_auth_failure("HTTP 404 not found"));
+    }
+
+    #[test]
+    fn is_auth_failure_false_for_other_http_errors() {
+        assert!(!is_auth_failure("HTTP 500 internal"));
+        assert!(!is_auth_failure("HTTP 502 bad gateway"));
+        assert!(!is_auth_failure("HTTP 429 rate limited"));
+    }
+
+    #[test]
+    fn is_auth_failure_false_for_network_errors() {
+        // 네트워크 끊김·DNS 실패 등은 인증 실패가 아니다.
+        assert!(!is_auth_failure("connection refused"));
+        assert!(!is_auth_failure("dns lookup failed"));
+        assert!(!is_auth_failure(""));
+    }
+
+    #[test]
+    fn is_auth_failure_matches_when_code_embedded_in_longer_message() {
+        // 실제 에러 메시지 톤에 가까운 케이스. claude_api.rs의 에러 포맷은
+        // "claude.ai HTTP 401: ..." 형태.
+        assert!(is_auth_failure("claude.ai HTTP 401: ..."));
+        assert!(is_auth_failure("usage fetch failed: HTTP 403 forbidden"));
+    }
+
+    // ===== cap_window_top / cap_window_right (v1.70 zoom max 화면 cap) =====
+
+    #[test]
+    fn cap_window_top_keeps_y_when_already_below_safe_top() {
+        // monitor top 0 + 메뉴바 inset 48 → safe_top 48. y=100 은 그 아래라 그대로.
+        assert_eq!(cap_window_top(100, 0, 48), 100);
+    }
+
+    #[test]
+    fn cap_window_top_clamps_when_y_above_safe_top() {
+        // y=-20 (메뉴바 위로 빠짐) → safe_top 48 로 cap.
+        assert_eq!(cap_window_top(-20, 0, 48), 48);
+    }
+
+    #[test]
+    fn cap_window_top_handles_monitor_with_nonzero_origin() {
+        // 다중 모니터 — 외부 모니터가 (0, -1080) 에 있는 경우.
+        // monitor_top=-1080 + inset=48 → safe_top=-1032.
+        assert_eq!(cap_window_top(-2000, -1080, 48), -1032);
+        // 이미 안전 영역 안이면 그대로.
+        assert_eq!(cap_window_top(-500, -1080, 48), -500);
+    }
+
+    #[test]
+    fn cap_window_top_zero_inset_caps_at_monitor_top() {
+        // 메뉴바 inset 없음(가상 모니터) → monitor_top 자체가 cap.
+        assert_eq!(cap_window_top(-10, 0, 0), 0);
+        assert_eq!(cap_window_top(5, 0, 0), 5);
+    }
+
+    #[test]
+    fn cap_window_right_keeps_x_when_window_fits_inside_monitor() {
+        // monitor (x=0, w=1920) + window (x=100, w=400). right=500 < 1920.
+        assert_eq!(cap_window_right(100, 400, 0, 1920, 0), 100);
+    }
+
+    #[test]
+    fn cap_window_right_shifts_x_left_when_overflowing() {
+        // window x=1700, w=400 → right=2100 > monitor right 1920 → x=1520.
+        assert_eq!(cap_window_right(1700, 400, 0, 1920, 0), 1520);
+    }
+
+    #[test]
+    fn cap_window_right_respects_right_inset() {
+        // monitor (0, 1920) + right_inset 20 → safe_right 1900.
+        // window x=1700 w=400 → right=2100 > 1900 → x=1500.
+        assert_eq!(cap_window_right(1700, 400, 0, 1920, 20), 1500);
+    }
+
+    #[test]
+    fn cap_window_right_handles_secondary_monitor_with_offset() {
+        // 외부 모니터 monitor_x=1920 width=1920 (오른쪽으로 확장).
+        // window x=3500 w=400 → right=3900 > 3840 → x=3440.
+        assert_eq!(cap_window_right(3500, 400, 1920, 1920, 0), 3440);
+    }
+
+    #[test]
+    fn cap_window_right_no_change_when_window_exactly_fits() {
+        // right=monitor_right 정확히 → 통과 (조건 strict >).
+        assert_eq!(cap_window_right(1520, 400, 0, 1920, 0), 1520);
     }
 }

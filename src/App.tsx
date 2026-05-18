@@ -20,11 +20,14 @@ import {
 } from "./store";
 import { ACCESSORIES, DEFAULT_SKIN_ID, SKINS, findSkin, type ActionName } from "./skins";
 import {
+  PET_SCALE_DEFAULT,
+  clampScale,
   computeSessionTimer,
   derive,
   formatResetCountdown,
   formatTrayLabel,
   hashHue,
+  scaleFromDrag,
 } from "./petLogic";
 import { maybeNotify, resetThreshold } from "./notifier";
 import "./App.css";
@@ -278,6 +281,11 @@ function AnimPreviewApp() {
 function PetApp() {
   const [view, setView] = useState<View>("loading");
   const [config, setConfig] = useState<PlanConfig | null>(null);
+  // v1.70 펫 zoom 배율. PlanConfig.petScale 로 영속화. 드래그 중에는 setScale 만
+  // 호출해 즉시 시각 반영하고, pointerup 시점에 savePlanConfig 한 번 호출(드래그
+  // 폭주 방지). disconnected 상태나 ResizeObserver 발화는 scale 변화의 자연
+  // 부산물로만 일어남.
+  const [scale, setScale] = useState<number>(PET_SCALE_DEFAULT);
 
   useEffect(() => {
     Promise.all([loadPlanConfig(), loadAccountsConfig()]).then(
@@ -316,6 +324,7 @@ function PetApp() {
             await savePlanConfig(synced);
           }
           setConfig(synced);
+          setScale(clampScale(synced.petScale ?? PET_SCALE_DEFAULT));
           setView("pet");
           return;
         }
@@ -338,12 +347,24 @@ function PetApp() {
           () => {},
         );
         setConfig(defaultCfg);
+        setScale(clampScale(defaultCfg.petScale ?? PET_SCALE_DEFAULT));
         setView("pet");
         if (accCfg.accounts.length === 0) {
           invoke("open_onboarding_window").catch(() => {});
         }
       },
     );
+  }, []);
+
+  // 설정창 등 다른 윈도우가 PlanConfig 를 변경하면 petScale 도 다시 가져온다.
+  useEffect(() => {
+    const un = listen("config-changed", async () => {
+      const cfg = await loadPlanConfig();
+      if (cfg) setScale(clampScale(cfg.petScale ?? PET_SCALE_DEFAULT));
+    });
+    return () => {
+      un.then((fn) => fn());
+    };
   }, []);
 
   // The standalone settings window emits `config-changed` after every
@@ -409,7 +430,24 @@ function PetApp() {
   // The pet panel always renders against `config` — even on first
   // launch, where we save a default plan synchronously above before
   // popping the onboarding window.
-  return <Pet config={config!} />;
+  return (
+    <Pet
+      config={config!}
+      scale={scale}
+      onScaleChange={setScale}
+      onScaleCommit={async (next) => {
+        setScale(next);
+        const cur = await loadPlanConfig();
+        const base: PlanConfig =
+          cur ?? config ?? {
+            plan: "max5x",
+            limits: PLAN_PRESETS.max5x,
+            skin: DEFAULT_SKIN_ID,
+          };
+        await savePlanConfig({ ...base, petScale: next });
+      }}
+    />
+  );
 }
 
 // The settings popup is its own ordinary, decorated window. No panel
@@ -771,8 +809,14 @@ function OnboardingApp() {
 
 function Pet({
   config,
+  scale,
+  onScaleChange,
+  onScaleCommit,
 }: {
   config: PlanConfig;
+  scale: number;
+  onScaleChange: (next: number) => void;
+  onScaleCommit: (next: number) => void;
 }) {
   const [snap, setSnap] = useState<UsageSnapshot | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -957,35 +1001,99 @@ function Pet({
   // 호출은 제거. (CacheBubble 컴포넌트가 미사용이지만 hit/miss flash와 콤보 정보를
   // 다시 보고 싶을 때 살리기 쉽게 정의는 유지.)
 
-  // v1.49 동적 윈도우 resize: .pet-content 실제 크기를 ResizeObserver로 측정해서
-  // Rust 쪽에 invoke. 윈도우 자체를 콘텐츠에 맞춰 줄여야 OS NSPanel hit-test가
-  // 잡을 빈 영역이 사라진다 (html/body/#root pointer-events: none 만으론 OS
-  // level dead zone 못 막음, v1.23~v1.26 시도들에서 확인). bottom anchor라
-  // 발끝 화면 위치는 유지.
+  // v1.49 동적 윈도우 resize + v1.70 zoom 통합. webkit 의 CSS `zoom` 은
+  // layout box 를 같이 안 바꿔서 ResizeObserver 가 zoom 변화에 발화하지
+  // 못한다(2026-05-18 사용자 재보고로 확정). 그래서 두 wrapper 구조로:
+  //   .pet-content       — 명시적 width/height = inner × scale, 윈도우 크기 기준
+  //   .pet-content-inner — transform: scale 으로 시각 표현 (layout 영향 X)
+  // ResizeObserver 는 *unscaled* inner 를 측정 → innerSize state. scale 또는
+  // innerSize 가 변할 때 useEffect 가 invoke 를 강제 트리거. 핸들은 .pet-root
+  // 자식이라 scale 영향을 받지 않고 화면 우하단에 고정.
   const petContentRef = useRef<HTMLDivElement | null>(null);
+  const petInnerRef = useRef<HTMLDivElement | null>(null);
+  const [innerSize, setInnerSize] = useState<{ w: number; h: number }>({
+    w: 0,
+    h: 0,
+  });
   useEffect(() => {
-    const el = petContentRef.current;
-    if (!el) return;
-    let lastW = 0;
-    let lastH = 0;
-    const PAD = 16; // .pet-root padding 8px × 2
+    const inner = petInnerRef.current;
+    if (!inner) return;
     const ro = new ResizeObserver(() => {
-      const rect = el.getBoundingClientRect();
-      const w = Math.ceil(rect.width) + PAD;
-      const h = Math.ceil(rect.height) + PAD;
-      // hysteresis — 매 frame rounding 노이즈로 invoke 폭주 방지.
-      if (Math.abs(w - lastW) < 2 && Math.abs(h - lastH) < 2) return;
-      lastW = w;
-      lastH = h;
-      invoke("resize_pet_window", { width: w, height: h }).catch(() => {});
+      // offsetWidth/Height 는 layout box(=transform 적용 *전*) 크기.
+      // getBoundingClientRect 는 transform 후 시각 크기라 scale 곱셈이
+      // 제곱돼버림(2026-05-18 사용자 보고 "더 이상해졌어"의 원인). 항상
+      // offset* 으로 unscaled 측정.
+      const w = inner.offsetWidth;
+      const h = inner.offsetHeight;
+      setInnerSize((prev) => {
+        if (Math.abs(prev.w - w) < 2 && Math.abs(prev.h - h) < 2) return prev;
+        return { w, h };
+      });
     });
-    ro.observe(el);
+    ro.observe(inner);
     return () => ro.disconnect();
   }, []);
 
+  // scale 또는 innerSize 가 변하면 윈도우 크기 강제 갱신. ResizeObserver 가
+  // zoom 변화에 발화 못 해도 이 흐름이 백업으로 동작. 16px 는 .pet-root padding.
+  useEffect(() => {
+    if (innerSize.w === 0 || innerSize.h === 0) return;
+    const PAD = 16;
+    const w = Math.ceil(innerSize.w * scale) + PAD;
+    const h = Math.ceil(innerSize.h * scale) + PAD;
+    invoke("resize_pet_window", { width: w, height: h }).catch(() => {});
+  }, [scale, innerSize.w, innerSize.h]);
+
+  // v1.70 resize handle 드래그 흐름. pointerdown 시 시작 좌표 + 시작 scale 을
+  // 캡처하고, pointermove 마다 합 delta(dx+dy)로 새 scale 을 계산 후
+  // onScaleChange 즉시 호출(시각 반영). pointerup 에서 onScaleCommit 한 번 호출해
+  // store 에 저장. setPointerCapture 로 다른 영역으로 빠져나가도 추적 유지.
+  const dragRef = useRef<{ startX: number; startY: number; startScale: number } | null>(
+    null,
+  );
+  const onHandlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startScale: scale };
+  };
+  const onHandlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    onScaleChange(scaleFromDrag(d.startScale, dx + dy));
+  };
+  const onHandlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    const next = scaleFromDrag(d.startScale, dx + dy);
+    dragRef.current = null;
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+    onScaleCommit(next);
+  };
+
+  // .pet-content 의 외곽 박스 크기(scale 곱한 값). innerSize 가 아직 0 이면
+  // 첫 측정 직전이라 'auto' 로 두어 자연스럽게 fit. 측정 들어오면 명시적 px.
+  const outerStyle: React.CSSProperties =
+    innerSize.w > 0 && innerSize.h > 0
+      ? { width: `${innerSize.w * scale}px`, height: `${innerSize.h * scale}px` }
+      : {};
+
   return (
     <div className="pet-root">
-      <div className="pet-content" ref={petContentRef}>
+      <div className="pet-content" ref={petContentRef} style={outerStyle}>
+        <div
+          className="pet-content-inner"
+          ref={petInnerRef}
+          style={{
+            transform: scale === 1 ? undefined : `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+        >
       <SessionStack sessions={snap?.active_sessions ?? []} now={now} />
       <div className="bubble-stack" data-tauri-drag-region>
         {snap?.is_thinking && <ThinkingBubble />}
@@ -1057,6 +1165,25 @@ function Pet({
           </div>
         )}
       </div>
+        {/* resize 핸들 — .pet-content-inner 의 자식. 위치는 inner 우하단(= 캐릭터
+            발 옆) 이라 펫 따라 자연스럽게 이동하지만, counter-scale(1/scale + bottom right
+            origin)로 크기는 항상 일정. 2026-05-18 사용자 정정 두 번 반영. */}
+        <div
+          className="resize-handle"
+          title="드래그해서 펫 크기 조정"
+          aria-label="resize"
+          style={{
+            transform: scale === 1 ? undefined : `scale(${1 / scale})`,
+            transformOrigin: "bottom right",
+          }}
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={onHandlePointerMove}
+          onPointerUp={onHandlePointerUp}
+          onPointerCancel={onHandlePointerUp}
+        >
+          <span className="resize-icon" aria-hidden>↘</span>
+        </div>
+        </div>
       </div>
     </div>
   );

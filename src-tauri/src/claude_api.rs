@@ -583,4 +583,204 @@ mod tests {
         let r = json!({"amount_cents": -100});
         assert_eq!(parse_prepaid_credits(&r), None);
     }
+
+    // ===== 추가 회귀 케이스 (v1.51 테스트 커버리지 보강) =====
+
+    #[test]
+    fn sanitize_empty_string() {
+        assert_eq!(sanitize_cookie(""), "");
+    }
+
+    #[test]
+    fn sanitize_whitespace_only_collapses_to_empty() {
+        assert_eq!(sanitize_cookie("   \n\t  "), "");
+    }
+
+    #[test]
+    fn sanitize_handles_open_bracket_without_close() {
+        // "[" 만 있고 "]" 가 없으면 그대로 통과 (sanitize 는 robustness 가
+        // 잘못해서 데이터를 더 망가뜨리지 않는 게 더 중요).
+        let raw = "sessionKey=abc[def";
+        assert_eq!(sanitize_cookie(raw), "sessionKey=abc[def");
+    }
+
+    #[test]
+    fn sanitize_handles_bracket_paren_without_closing_paren() {
+        // "[text](http..." 인데 ")" 없는 깨진 마크다운. lonely [ ... ] 분기로
+        // 떨어져서 안쪽 텍스트만 보존, 뒤의 "(http..." 는 그대로 남는다.
+        let raw = "[abc](http://no-close";
+        // close=4, then close+1='(' 있는데 ')' 못 찾음 → lonely [ abc ] 처리 →
+        // i jump to close+1=5 → 남은 "(http://no-close" 그대로.
+        let out = sanitize_cookie(raw);
+        assert!(out.contains("abc"));
+        assert!(out.contains("http://no-close"));
+        // ']' 자체는 안 들어감.
+        assert!(!out.contains("]"));
+    }
+
+    #[test]
+    fn sanitize_collapses_tabs_in_value() {
+        let raw = "a\t=\t1";
+        assert_eq!(sanitize_cookie(raw), "a = 1");
+    }
+
+    #[test]
+    fn pick_utilization_at_exactly_one_point_five_treated_as_fraction() {
+        // 코드 조건: `v <= 1.5` 이면 fraction. 정확히 1.5 → 분수로 → 150.
+        // (현실엔 1.5 라는 fraction 자체가 없지만 경계값.)
+        let w = json!({"utilization": 1.5});
+        assert_eq!(pick_utilization(&w), Some(150.0));
+    }
+
+    #[test]
+    fn pick_utilization_just_above_one_point_five_treated_as_pct() {
+        // 1.51 → pct 그대로.
+        let w = json!({"utilization": 1.51});
+        assert_eq!(pick_utilization(&w), Some(1.51));
+    }
+
+    #[test]
+    fn pick_utilization_zero_returns_zero_not_none() {
+        // 0% 사용 == 만 가입 상태. None 으로 떨어지면 fresh 데이터인지 stale 인지
+        // 구분 못 함. 0.0 으로 명시 반환.
+        let w = json!({"utilization": 0.0});
+        assert_eq!(pick_utilization(&w), Some(0.0));
+    }
+
+    #[test]
+    fn pick_utilization_buckets_returns_none_when_all_buckets_empty() {
+        let w = json!({"buckets": []});
+        assert_eq!(pick_utilization(&w), None);
+    }
+
+    #[test]
+    fn pick_utilization_buckets_skips_invalid_items() {
+        // 잡 객체 + 정상 utilization 섞여 있어도 정상 값만 집계.
+        let w = json!({
+            "buckets": [
+                {"unrelated": 99},
+                {"utilization": 42.0},
+                {"name": "claude-3"}
+            ]
+        });
+        assert_eq!(pick_utilization(&w), Some(42.0));
+    }
+
+    #[test]
+    fn pick_reset_returns_none_when_field_is_not_string() {
+        // 숫자 timestamp 만 흘러오면 RFC3339 가 아니라 None.
+        let w = json!({"resets_at": 1715856000});
+        assert_eq!(pick_reset(&w), None);
+    }
+
+    #[test]
+    fn pick_reset_returns_none_for_empty_string() {
+        let w = json!({"resets_at": ""});
+        assert_eq!(pick_reset(&w), None);
+    }
+
+    #[test]
+    fn extract_window_handles_value_with_only_reset_field() {
+        // utilization 없고 resets_at 만 있어도 (None, Some(...)) 반환.
+        let root = json!({"five_hour": {"resets_at": "2026-05-16T13:00:00Z"}});
+        let (util, reset) = extract_window(&root, &["five_hour"]);
+        assert!(util.is_none());
+        assert!(reset.is_some());
+    }
+
+    #[test]
+    fn extract_window_skips_key_whose_value_has_neither_util_nor_reset() {
+        // 첫 키 매치되지만 util/reset 둘 다 None → 다음 키 시도.
+        let root = json!({
+            "five_hour": {"unrelated": 1},
+            "five_hour_limit": {"utilization": 50.0}
+        });
+        let (util, _) = extract_window(&root, &["five_hour", "five_hour_limit"]);
+        assert_eq!(util, Some(50.0));
+    }
+
+    // ===== parse_prepaid_credits 추가 케이스 =====
+
+    #[test]
+    fn prepaid_zero_balance_returns_zero_dollars() {
+        // 충전 안 한 사용자라도 0 은 명시적 0 (None 으로 떨어지면 안 됨).
+        // 단, 코드의 `dollars >= 0.0` 조건이 0 도 통과시켜야 함.
+        let r = json!({"balance": 0});
+        assert_eq!(parse_prepaid_credits(&r), Some(0.0));
+    }
+
+    #[test]
+    fn prepaid_negative_then_negative_falls_to_next_strategy() {
+        // 모든 direct dollar 키가 음수면 cents 키로 넘어감. cents도 음수면 None.
+        let r = json!({
+            "balance": -1,
+            "available_dollars": -5,
+            "amount_cents": 1290
+        });
+        // direct 들 전부 음수 → cents 키로 → amount_cents 1290 → $12.90.
+        assert_eq!(parse_prepaid_credits(&r), Some(12.90));
+    }
+
+    #[test]
+    fn prepaid_credits_array_skips_nested_negative_items() {
+        // 배열 안에 음수 item 이 있어도 양수 합산은 살아야 함.
+        // 각 item 은 재귀적으로 parse_prepaid_credits 를 거치므로 음수는 None 으로 떨어져 skip.
+        let r = json!({
+            "credits": [
+                {"balance": -1},
+                {"balance": 5.0},
+                {"amount_cents": 250}
+            ]
+        });
+        // 음수 1번은 None → 합산 안 됨. 5.0 + 2.50 = 7.50.
+        assert_eq!(parse_prepaid_credits(&r), Some(7.50));
+    }
+
+    #[test]
+    fn prepaid_returns_none_when_all_credits_negative() {
+        let r = json!({
+            "credits": [
+                {"balance": -1},
+                {"balance": -2}
+            ]
+        });
+        assert_eq!(parse_prepaid_credits(&r), None);
+    }
+
+    // ===== coerce_dollars heuristic 경계 =====
+
+    #[test]
+    fn coerce_dollars_at_exact_thousand_treated_as_cents() {
+        // 1000 정확히 + fract=0 → cents 로 해석 → $10.00.
+        assert_eq!(coerce_dollars(1000.0), 10.0);
+    }
+
+    #[test]
+    fn coerce_dollars_just_below_thousand_kept_as_dollars() {
+        // 999 + fract=0 → dollars 그대로 (1000 미만은 $999 일 수도 있음).
+        assert_eq!(coerce_dollars(999.0), 999.0);
+    }
+
+    #[test]
+    fn coerce_dollars_with_decimals_kept_as_dollars_even_if_large() {
+        // fract != 0 이면 cents 해석 안 함. $1234.56 dollars 가능성.
+        assert_eq!(coerce_dollars(1234.56), 1234.56);
+    }
+
+    #[test]
+    fn coerce_dollars_negative_large_integer_treated_as_cents() {
+        // abs() >= 1000 + fract=0 분기. (음수가 흘러들면 직접 호출 시점에서는 cents 로 보지만
+        // 호출자가 parse_prepaid_credits 의 `dollars >= 0.0` 가드로 걸러냄.)
+        assert_eq!(coerce_dollars(-2000.0), -20.0);
+    }
+
+    #[test]
+    fn round2_basic_cases() {
+        // 1.235 같은 정확히 .5 케이스는 IEEE 754 표현 때문에 환경에 따라 갈리므로 회피.
+        assert_eq!(round2(0.0), 0.0);
+        assert_eq!(round2(1.234), 1.23);
+        assert_eq!(round2(1.236), 1.24);
+        assert_eq!(round2(1.999), 2.0);
+        assert_eq!(round2(-1.234), -1.23);
+    }
 }

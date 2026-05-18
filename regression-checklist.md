@@ -149,6 +149,35 @@
 
 ---
 
+## 15. 펫 크기 조정 — resize handle (v1.70+)
+
+펫 윈도우 우하단(= 캐릭터 발 옆) 의 ↘ 핸들을 드래그해서 펫 + UsageBubble + 세션 stack 전체 zoom 조정. PlanConfig.petScale 영속. 0.6 ~ 1.5 범위. v1.49 동적 윈도우 resize 흐름과 통합 (`compute_anchored_y` bottom anchor 유지) + v1.70 화면 cap (`cap_window_top` / `cap_window_right`) 으로 메뉴바·우측 경계 밖으로 안 빠짐.
+
+**핵심 검증 — 5분 안 훑기:**
+
+- [ ] **핸들 시각 표시**: 캐릭터 발 옆 우하단에 ↘ 아이콘이 담긴 작은 라운드 카드(흰색 배경 + 둥근 보더 + 살짝 그림자). hover 시 강조
+- [ ] **드래그 = scale 변화**: 핸들에 mousedown → 마우스 우/하로 드래그 = 펫 + 카드 같이 커짐 / 좌/상 드래그 = 작아짐. 200px 드래그 ≈ 0.5 단위 변화
+- [ ] **scale 범위 clamp**: 더 작게 끌어도 0.6 미만 안 됨, 더 크게 끌어도 1.5 초과 안 됨 (PET_SCALE_MIN/MAX)
+- [ ] **scale 영속**: 드래그 끝나면(pointerup) PlanConfig.petScale 저장. 앱 종료/재실행 후 마지막 scale 그대로 복원
+- [ ] **핸들 크기 일정**: 펫이 커지든 작아지든 *핸들 자체 크기는 22px 고정*. counter-scale(`transform: scale(1/scale)` + `transformOrigin: 'bottom right'`) 로 inner 의 transform: scale 효과 정확히 상쇄
+- [ ] **핸들 위치 = 발 옆**: 핸들이 .pet-content-inner 우하단 = 캐릭터 발 옆 근처에 *딱 붙음*. 펫이 커지면 그에 따라 핸들도 시각 위치 이동 (펫과 분리 안 됨)
+- [ ] **윈도우 크기 동적 갱신**: scale 변화 시 윈도우 자체 크기(`set_size`) 도 같이 변화 → 콘텐츠가 윈도우 안에 정확히 fit, 잘림 없음. ResizeObserver 가 `.pet-content-inner` 의 `offsetWidth/offsetHeight` (transform 적용 *전* layout box) 측정 + scale 곱한 값으로 invoke
+- [ ] **bottom anchor 유지 (1.0 ↔ 1.5)**: scale 변경 후 펫 발끝의 화면 y 위치가 *대체로* 유지 (메뉴바 cap 에 걸리면 양보)
+- [ ] **메뉴바 cap (top)**: scale max(1.5) 에서 윈도우 top 이 화면 메뉴바(약 24px) 위로 안 빠짐. 카드 stack 윗부분이 잘리지 않고 메뉴바 아래에서 시작 (`cap_window_top` 적용)
+- [ ] **우측 cap (right)**: 펫이 화면 우측 끝에 있을 때 scale 키워도 윈도우 우측이 모니터 우측 경계(- 8px inset) 넘지 않음 → 펫 + 핸들이 자동으로 좌측으로 살짝 이동 (`cap_window_right` 적용)
+- [ ] **scale=1 기본값**: 첫 실행 또는 PlanConfig.petScale 누락 시 1.0 으로 시작 (`PET_SCALE_DEFAULT`)
+- [ ] **passthrough 유지**: scale 변경해도 펫 윈도우 빈 영역(카드와 펫 사이 등) 클릭은 데스크톱으로 통과. 핸들 클릭만 잡힘
+- [ ] **idle 액션 정상**: scale=1.5 에서도 roll / jump / run / scratch / wobble / squish 액션 정상 재생 (transform scale 과 idle CSS 충돌 없음)
+- [ ] **flash hit/miss 정상**: scale 변경 상태에서 캐시 hit ✨ / miss 💨 효과 정상 표시 (이펙트가 펫 박스에 묶여 같이 scaled)
+
+**검증 시나리오:**
+1. 펫을 화면 *우측 끝*으로 드래그
+2. 핸들을 잡고 우/하로 max 까지 드래그
+3. 카드 / 핸들 / 펫 모두 화면 안에 보이고 잘림 없는지 확인
+4. ⌘Q 종료 → 다시 실행 → 마지막 scale 그대로 떠있는지
+
+---
+
 ## 13. orgId/쿠키 자동 캡처 — paste 방식 (v1.27+)
 
 설정 wizard "자동으로 가져오기" → 시스템 Chrome으로 claude.ai/settings/usage 열림 → wizard의 paste 박스에 cookie 한 줄 붙여넣기 → orgId + 쿠키 자동 채움.

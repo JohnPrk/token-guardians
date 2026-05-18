@@ -3,6 +3,34 @@ import type { PetState, PlanLimits, UsageSnapshot } from "./types";
 export const CACHE_TTL_MS = 5 * 60 * 1000;
 export const CACHE_NUDGE_AT_MS = 4 * 60 * 1000;
 
+// 펫 윈도우 zoom 배율 (v1.70+). 우하단 그립 드래그로 조정. 너무 작으면
+// 텍스트 가독성·캐릭터 표정이 다 깨지고, 너무 크면 화면 점유가 부담스러워
+// 사용자에게 의도된 폭만 허용한다.
+export const PET_SCALE_MIN = 0.6;
+// v1.70 초기엔 1.8 까지 허용했으나 max 근처에서 펫이 너무 커져 카드 stack
+// 과 resize 핸들이 화면 상단 메뉴바 위로 잘리는 회귀가 확인됨(2026-05-18
+// 사용자 보고). 일반 디스플레이에서 카드+핸들+펫 본체가 모두 가시 영역
+// 안에 들어오는 안전한 상한이 약 1.5.
+export const PET_SCALE_MAX = 1.5;
+export const PET_SCALE_DEFAULT = 1.0;
+// 드래그 dx + dy 합이 이 픽셀만큼 늘어나면 scale 이 1.0 만큼 증가. 100px ≈ 0.5
+// 배율 변화라 한쪽 끝에서 끝까지 가는 데 ~250px 정도 필요. 손맛 무난.
+export const PET_SCALE_DRAG_PX_PER_UNIT = 200;
+
+export function clampScale(v: number): number {
+  if (!Number.isFinite(v)) return PET_SCALE_DEFAULT;
+  if (v < PET_SCALE_MIN) return PET_SCALE_MIN;
+  if (v > PET_SCALE_MAX) return PET_SCALE_MAX;
+  return v;
+}
+
+/** 드래그 시작 시점의 scale 과 mouse delta(dx + dy) 를 받아 새 scale 반환.
+ *  우하단 그립이라 우/하로 끌수록 커지고 좌/상으로 끌수록 작아진다. clamp 적용. */
+export function scaleFromDrag(startScale: number, deltaSumPx: number): number {
+  const next = startScale + deltaSumPx / PET_SCALE_DRAG_PX_PER_UNIT;
+  return clampScale(next);
+}
+
 export type DerivedState = {
   /** Battery-style remaining %: 1.0 = full, 0.0 = exhausted */
   fiveHourRemaining: number;
