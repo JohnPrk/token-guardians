@@ -97,20 +97,32 @@ pub fn parse_release_response(json: &str, current_version: &str) -> Option<Updat
 
 // ============ IO (regression-checklist 11번으로 검증) ============
 
-/// GitHub Releases API 호출. 네트워크 실패는 None으로 graceful (트레이가 평소 모습 유지).
-pub fn fetch_latest_release(current_version: &str) -> Option<UpdateInfo> {
+/// GitHub Releases API 호출 결과를 3-way로 구분한다.
+/// - `Ok(Some(info))` : 응답 OK, 새 버전 있음
+/// - `Ok(None)`       : 응답 OK, 이미 최신 (또는 매칭 자산 없음)
+/// - `Err(msg)`       : HTTP/네트워크/파싱 실패 — 사용자에게 "확인 실패" 표시용
+///
+/// 이전 v1.51까지는 두 갈래를 모두 `Option<UpdateInfo>::None` 으로 묻었어서,
+/// 트레이 메뉴가 "확인이 됐는지 안 됐는지" 자체를 구분하지 못했음. 사용자가
+/// v1.70 클라이언트에서 "지금 새로고침" 눌러도 시각적 신호가 0이라 *동작
+/// 자체*가 의심되는 케이스가 있어서 Result로 갈라냈다.
+pub fn fetch_latest_release(current_version: &str) -> Result<Option<UpdateInfo>, String> {
     let client = reqwest::blocking::Client::builder()
         .user_agent(USER_AGENT)
         .timeout(HTTP_TIMEOUT)
         .build()
-        .ok()?;
-    let res = client.get(GITHUB_API).send().ok()?;
+        .map_err(|e| format!("HTTP client: {}", e))?;
+    let res = client
+        .get(GITHUB_API)
+        .send()
+        .map_err(|e| format!("HTTP send: {}", e))?;
     if !res.status().is_success() {
-        log::warn!("github releases api status: {}", res.status());
-        return None;
+        let status = res.status();
+        log::warn!("github releases api status: {}", status);
+        return Err(format!("HTTP {}", status));
     }
-    let body = res.text().ok()?;
-    parse_release_response(&body, current_version)
+    let body = res.text().map_err(|e| format!("HTTP body: {}", e))?;
+    Ok(parse_release_response(&body, current_version))
 }
 
 /// dmg를 OS 캐시 디렉토리에 다운로드. 동일 파일명 있으면 덮어씀.

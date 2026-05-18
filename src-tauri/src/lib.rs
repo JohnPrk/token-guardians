@@ -985,6 +985,15 @@ struct AccountMeta {
 // conditional하게 끼운다. UPDATE_INFO와 TRAY_ACCOUNTS_CACHE는 둘 다 rebuild_tray_menu가
 // 양쪽을 읽어 합치므로, 어느 한쪽이 새로 들어와도 트레이 메뉴 한 번만 다시 그리면 된다.
 static UPDATE_INFO: OnceLock<parking_lot::Mutex<Option<updater::UpdateInfo>>> = OnceLock::new();
+// 마지막 GitHub Releases 폴링 결과 (성공/실패 여부 + 시각). 트레이 메뉴 헤더에
+// "최신 · 14:23 확인" / "확인 실패 · 14:23 시도" 형태로 노출해서, 사용자가 "지금
+// 새로고침" 클릭이 *실제로 동작했는지* 시각적으로 구분할 수 있게 한다.
+#[derive(Clone)]
+struct LastUpdateCheck {
+    at: chrono::DateTime<chrono::Local>,
+    ok: bool,
+}
+static LAST_UPDATE_CHECK: OnceLock<parking_lot::Mutex<Option<LastUpdateCheck>>> = OnceLock::new();
 static TRAY_ACCOUNTS_CACHE: OnceLock<parking_lot::Mutex<(Vec<AccountMeta>, Option<String>)>> =
     OnceLock::new();
 
@@ -1009,6 +1018,10 @@ static INSTALL_IN_PROGRESS: OnceLock<AtomicBool> = OnceLock::new();
 
 fn update_info_lock() -> &'static parking_lot::Mutex<Option<updater::UpdateInfo>> {
     UPDATE_INFO.get_or_init(|| parking_lot::Mutex::new(None))
+}
+
+fn last_update_check_lock() -> &'static parking_lot::Mutex<Option<LastUpdateCheck>> {
+    LAST_UPDATE_CHECK.get_or_init(|| parking_lot::Mutex::new(None))
 }
 
 fn tray_accounts_cache_lock(
@@ -1047,13 +1060,34 @@ fn build_menu(
     active_id: Option<&str>,
     update_info: Option<&updater::UpdateInfo>,
 ) -> tauri::Result<Menu<Wry>> {
-    let version_label = match update_info {
-        Some(info) => format!(
+    // 버전 라벨에 마지막 폴링 시각·결과를 인라인 붙임. 사용자가 "지금 새로고침"
+    // 후 메뉴를 다시 열었을 때 timestamp가 갱신되면 = 폴링 동작 OK 라는 시각 신호.
+    // 첫 부팅 직후 폴링이 아직 안 끝난 시점에는 LAST_UPDATE_CHECK가 None이라
+    // 종전과 동일하게 버전만 표시한다.
+    let last_check = last_update_check_lock().lock().clone();
+    let version_label = match (update_info, &last_check) {
+        (Some(info), Some(lc)) => format!(
+            "토큰 판다 v{} · 🆕 v{} 있음 · {} 확인",
+            env!("CARGO_PKG_VERSION"),
+            info.latest_version,
+            lc.at.format("%H:%M")
+        ),
+        (Some(info), None) => format!(
             "토큰 판다 v{} · 🆕 v{} 있음",
             env!("CARGO_PKG_VERSION"),
             info.latest_version
         ),
-        None => format!("토큰 판다 v{}", env!("CARGO_PKG_VERSION")),
+        (None, Some(lc)) if lc.ok => format!(
+            "토큰 판다 v{} · 최신 ({} 확인)",
+            env!("CARGO_PKG_VERSION"),
+            lc.at.format("%H:%M")
+        ),
+        (None, Some(lc)) => format!(
+            "토큰 판다 v{} · 확인 실패 ({} 시도)",
+            env!("CARGO_PKG_VERSION"),
+            lc.at.format("%H:%M")
+        ),
+        (None, None) => format!("토큰 판다 v{}", env!("CARGO_PKG_VERSION")),
     };
     let version_item = MenuItem::with_id(app, "version", &version_label, false, None::<&str>)?;
     let update_item: Option<MenuItem<Wry>> = match update_info {
@@ -1311,30 +1345,32 @@ fn notify_update(title: &str, body: &str) {
         .status();
 }
 
-// GitHub Releases 한 번 조회 → UPDATE_INFO 갱신 → 변동 있을 때만 트레이 메뉴
+// GitHub Releases 한 번 조회 → UPDATE_INFO + LAST_UPDATE_CHECK 갱신 → 트레이 메뉴
 // 다시 그리기. fetch_latest_release가 blocking이라 호출자가 thread context를
 // 책임진다 (start_update_checker는 이미 자기 스레드, spawn_update_check_now는
 // 매번 새 스레드).
+//
+// 메뉴는 *항상* rebuild한다 (변동 유무와 무관). 사용자가 "지금 새로고침"을 눌렀을
+// 때 timestamp가 갱신되는 게 그 자체로 시각적 신호이기 때문. UPDATE_INFO는 성공
+// (Ok)일 때만 덮어쓰고, 실패(Err)이면 옛 값을 그대로 둔다.
 #[cfg(target_os = "macos")]
 fn check_latest_release_and_rebuild(app: &AppHandle) {
     let current = env!("CARGO_PKG_VERSION");
-    let fetched = updater::fetch_latest_release(current);
-    let changed = {
-        let mut lock = update_info_lock().lock();
-        let prev = lock.clone();
-        if prev != fetched {
-            *lock = fetched.clone();
-            true
-        } else {
-            false
-        }
-    };
-    if changed {
-        let app_for_main = app.clone();
-        let _ = app.run_on_main_thread(move || {
-            let _ = rebuild_tray_menu(&app_for_main);
-        });
+    let result = updater::fetch_latest_release(current);
+    let ok = result.is_ok();
+    if let Ok(new_info) = &result {
+        *update_info_lock().lock() = new_info.clone();
+    } else if let Err(e) = &result {
+        log::warn!("update check failed: {}", e);
     }
+    *last_update_check_lock().lock() = Some(LastUpdateCheck {
+        at: chrono::Local::now(),
+        ok,
+    });
+    let app_for_main = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let _ = rebuild_tray_menu(&app_for_main);
+    });
 }
 
 // "지금 새로고침" 트레이 클릭 시 호출. 1시간 폴링 cycle을 기다리지 않고 즉시
