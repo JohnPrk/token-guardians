@@ -1,7 +1,7 @@
 {
   "name": "token-panda",
   "private": true,
-  "version": "1.97.0",
+  "version": "1.99.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {

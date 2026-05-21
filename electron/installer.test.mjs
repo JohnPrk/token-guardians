@@ -14,6 +14,7 @@ const {
   pickAssetForPlatform,
   buildMacInstallScript,
   buildWindowsInstallScript,
+  buildWindowsInstallScriptEB,
 } = installer;
 
 describe("pickAssetForPlatform — macOS", () => {
@@ -185,6 +186,62 @@ describe("buildWindowsInstallScript", () => {
 
   it("launches new app hidden (background) after install", () => {
     const s = buildWindowsInstallScript("C:\\a.exe", "app.exe", "토큰 판다");
+    expect(s).toMatch(/Start-Process -FilePath \$exe -WindowStyle Hidden/);
+  });
+});
+
+// v1.85 부터 빌드가 electron-builder NSIS (productName=TokenPanda, oneClick +
+// perMachine:false) 라 옛 Tauri NSIS 가정(exe=app.exe, fallback=%LOCALAPPDATA%\
+// <productName>\..)이 더는 사실이 아니다. 새 함수는 Programs\TokenPanda\
+// TokenPanda.exe 를 primary 로 보고, 없으면 HKCU Uninstall sub-key 전체를 스캔
+// 해 DisplayName 으로 매칭 (NSIS GUID 키라 직접 lookup 불가).
+describe("buildWindowsInstallScriptEB (electron-builder NSIS)", () => {
+  it("targets TokenPanda.exe (electron-builder productName), not legacy app.exe", () => {
+    const s = buildWindowsInstallScriptEB("C:\\Temp\\tp.exe");
+    expect(s).toContain("'TokenPanda.exe'");
+    expect(s).not.toMatch(/\$proc = 'app\.exe'/);
+  });
+
+  it("includes the exact installer path (JSON-quoted, handles spaces and backslash)", () => {
+    const s = buildWindowsInstallScriptEB("C:\\Temp\\with space.exe");
+    expect(s).toContain('"C:\\\\Temp\\\\with space.exe"');
+  });
+
+  it("primary install root is %LOCALAPPDATA%\\Programs\\TokenPanda (electron-builder default for perMachine:false)", () => {
+    const s = buildWindowsInstallScriptEB("C:\\a.exe");
+    expect(s).toContain("$env:LOCALAPPDATA");
+    expect(s).toContain("Programs\\TokenPanda");
+  });
+
+  it("falls back to scanning HKCU Uninstall sub-keys by DisplayName when primary path missing", () => {
+    const s = buildWindowsInstallScriptEB("C:\\a.exe");
+    expect(s).toContain("HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall");
+    expect(s).toMatch(/Get-ChildItem/);
+    expect(s).toContain("DisplayName");
+    expect(s).toContain("TokenPanda");
+    expect(s).toContain("토큰 판다");
+  });
+
+  it("strips quotes from InstallLocation value (NSIS may write it quoted)", () => {
+    const s = buildWindowsInstallScriptEB("C:\\a.exe");
+    expect(s).toMatch(/\.Trim\('"'\)/);
+  });
+
+  it("waits for old process by 'TokenPanda' base name (max 30s) then force-kills", () => {
+    const s = buildWindowsInstallScriptEB("C:\\a.exe");
+    expect(s).toContain("GetFileNameWithoutExtension");
+    expect(s).toContain("Get-Process");
+    expect(s).toContain("Stop-Process -Force");
+  });
+
+  it("runs installer silently (NSIS /S) and waits for exit", () => {
+    const s = buildWindowsInstallScriptEB("C:\\a.exe");
+    expect(s).toContain("/S");
+    expect(s).toMatch(/Start-Process.*-Wait/);
+  });
+
+  it("launches new app hidden after install", () => {
+    const s = buildWindowsInstallScriptEB("C:\\a.exe");
     expect(s).toMatch(/Start-Process -FilePath \$exe -WindowStyle Hidden/);
   });
 });

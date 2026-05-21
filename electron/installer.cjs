@@ -149,6 +149,68 @@ if ($exe) {
 `;
 }
 
+// electron-builder NSIS (oneClick + perMachine:false + productName=TokenPanda)
+// 용 PS 스크립트. v1.85 에서 빌드 파이프라인을 Tauri NSIS → electron-builder
+// 로 갈아끼웠는데, 위쪽 buildWindowsInstallScript 는 옛 Tauri 가정 (exe 이름
+// `app.exe`, HKCU Uninstall 키가 productName 그대로) 에 묶인 v1.75.0 frozen
+// 테스트 계약이라 손대지 않고 새 함수로 분기. 차이:
+//   - 실제 설치 exe: `TokenPanda.exe` (productName 그대로, `app.exe` 아님)
+//   - 기본 설치 경로: `%LOCALAPPDATA%\Programs\TokenPanda\TokenPanda.exe`
+//     (electron-builder oneClick 기본값 — `Programs\` 가 끼는 게 핵심)
+//   - 레지스트리 키: electron-builder 가 appId 해시 GUID 로 sub-key 를 박아
+//     productName 직접 lookup 불가 → HKCU\...\Uninstall\* 를 스캔해서
+//     DisplayName 으로 매칭하는 fallback 로 대체
+// 본 함수가 처음부터 정확한 기본 설치 경로(`Programs\\TokenPanda\\..`)를 보고,
+// 거기 없으면 registry 스캔으로 떨어진다. 옛 코드처럼 GUID 모르는 직접 키
+// lookup 으로 항상 실패하던 회귀를 차단.
+function buildWindowsInstallScriptEB(installerPath) {
+  return `$ErrorActionPreference = 'SilentlyContinue'
+$installerPath = ${JSON.stringify(installerPath)}
+$proc = 'TokenPanda.exe'
+$installRoot = Join-Path $env:LOCALAPPDATA 'Programs\\TokenPanda'
+
+# 1) 옛 프로세스 종료 대기 (최대 30초). 못 죽으면 강제 종료.
+$procBase = [System.IO.Path]::GetFileNameWithoutExtension($proc)
+for ($i = 0; $i -lt 30; $i++) {
+  $p = Get-Process -Name $procBase -ErrorAction SilentlyContinue
+  if (-not $p) { break }
+  Start-Sleep -Milliseconds 1000
+}
+Get-Process -Name $procBase -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+# 2) 사일런트 설치 (NSIS oneClick /S).
+$proc2 = Start-Process -FilePath $installerPath -ArgumentList '/S' -Wait -PassThru -WindowStyle Hidden
+if ($proc2.ExitCode -ne 0) { exit $proc2.ExitCode }
+
+# 3) 새 exe 찾기. 우선 electron-builder 기본 설치 경로, 안 되면 HKCU Uninstall
+# 의 모든 sub-key 를 스캔해서 DisplayName 으로 매칭 (NSIS 가 appId 해시 GUID
+# 로 키를 박기 때문에 productName 직접 lookup 은 항상 실패).
+$exe = $null
+$primary = Join-Path $installRoot $proc
+if (Test-Path -LiteralPath $primary) { $exe = $primary }
+
+if (-not $exe) {
+  $keys = Get-ChildItem 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\' -ErrorAction SilentlyContinue
+  foreach ($k in $keys) {
+    $props = Get-ItemProperty $k.PSPath -ErrorAction SilentlyContinue
+    if ($props -and ($props.DisplayName -eq 'TokenPanda' -or $props.DisplayName -eq '토큰 판다')) {
+      $loc = $props.InstallLocation
+      if ($loc) {
+        $loc = $loc.Trim('"')
+        $cand = Join-Path $loc $proc
+        if (Test-Path -LiteralPath $cand) { $exe = $cand; break }
+      }
+    }
+  }
+}
+
+# 4) 백그라운드로 새 앱 실행.
+if ($exe) {
+  Start-Process -FilePath $exe -WindowStyle Hidden
+}
+`;
+}
+
 // URL → 파일. https 만 (GitHub release CDN). 302 redirect 따라감.
 function downloadToFile(url, destPath, userAgent) {
   return new Promise((resolve, reject) => {
@@ -214,11 +276,13 @@ async function downloadAndStartInstall(asset, opts) {
     // nohup 효과는 detached + ignore stdio 로 충분 (부모 종료시 SIGHUP 안 받음)
     await spawnDetached("bash", [scriptPath]);
   } else if (platform === "win32") {
-    // Tauri NSIS 실측: exe 이름은 productName 이 아니라 `app.exe`. registry 의
-    // HKCU Uninstall 하위 sub-key 는 productName(`토큰 판다`) 그대로.
-    const processName = opts.processName || "app.exe";
-    const regKey = opts.regKey || "토큰 판다";
-    const script = buildWindowsInstallScript(dest, processName, regKey);
+    // v1.85 부터 빌드 파이프라인이 electron-builder NSIS (productName="TokenPanda",
+    // oneClick + perMachine:false). 설치본 exe 이름·경로·레지스트리 키 규칙이
+    // Tauri NSIS 와 달라 옛 buildWindowsInstallScript 로는 새 exe lookup 이
+    // 항상 fail → 사용자가 본 "프로세스는 죽었는데 새 앱이 안 뜨는" 증상의 원인.
+    // buildWindowsInstallScriptEB 가 electron-builder 기본 경로 우선 + registry
+    // DisplayName 스캔 fallback 으로 그 회귀를 잡는다.
+    const script = buildWindowsInstallScriptEB(dest);
     const scriptPath = path.join(tmpDir, "tp-install.ps1");
     // UTF-8 BOM — PowerShell 5.1 이 .ps1 을 ANSI 로 읽지 않게.
     fs.writeFileSync(scriptPath, "﻿" + script, "utf8");
@@ -240,6 +304,7 @@ module.exports = {
   parseReleaseAssets,
   buildMacInstallScript,
   buildWindowsInstallScript,
+  buildWindowsInstallScriptEB,
   downloadAndStartInstall,
   // 테스트 보조
   MACOS_DMG_PATTERNS,
