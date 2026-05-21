@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import helpers from "./helpers.cjs";
-const { isAuthFailure, formatUpdateCheckLabel, bambooTierForRemaining } = helpers;
+const { isAuthFailure, formatUpdateCheckLabel, formatHeaderLabel, bambooTierForRemaining } = helpers;
 
 describe("isAuthFailure", () => {
   it("matches HTTP 401 anywhere in message", () => {
@@ -73,6 +73,26 @@ describe("formatUpdateCheckLabel", () => {
   it("pads hours and minutes to two digits", () => {
     const at = new Date(2026, 0, 1, 3, 7, 0);
     expect(formatUpdateCheckLabel({ at, ok: true }, null)).toBe("최신 · 03:07 확인");
+  });
+});
+
+describe("formatHeaderLabel", () => {
+  it("returns version-only label when no check has run yet", () => {
+    expect(formatHeaderLabel("1.97.0", null)).toBe("토큰 판다 v1.97.0");
+  });
+
+  it("appends HH:MM 확인 suffix when lastUpdateCheck has a timestamp", () => {
+    const at = new Date(2026, 4, 21, 3, 18, 0);
+    expect(formatHeaderLabel("1.97.0", { at, ok: true })).toBe(
+      "토큰 판다 v1.97.0 (03:18 확인)",
+    );
+  });
+
+  it("uses the same suffix regardless of poll ok/fail (only timestamp matters)", () => {
+    const at = new Date(2026, 4, 21, 14, 23, 0);
+    expect(formatHeaderLabel("1.97.0", { at, ok: false })).toBe(
+      "토큰 판다 v1.97.0 (14:23 확인)",
+    );
   });
 });
 

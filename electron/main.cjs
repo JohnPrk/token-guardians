@@ -12,7 +12,7 @@ const createStore = require("./store.cjs");
 const updater = require("./updater.cjs");
 const installer = require("./installer.cjs");
 const spaces = require("./spaces.cjs");
-const { isAuthFailure, formatUpdateCheckLabel, bambooTierForRemaining } = require("./helpers.cjs");
+const { isAuthFailure, formatUpdateCheckLabel, formatHeaderLabel, bambooTierForRemaining } = require("./helpers.cjs");
 
 app.setName("token-panda");
 
@@ -294,15 +294,14 @@ function startUpdateChecker() {
 
 function rebuildTray() {
   if (!tray) return;
+  // 헤더 한 줄에 버전 + 마지막 폴링 시각 통합 (v1.98): "토큰 판다 v1.97.0 (03:18 확인)".
+  // 평시엔 이 한 줄 + 메뉴 항목들만. 새 버전이 감지되면 헤더 바로 아래에
+  // "🆕 v.. 설치" 버튼 하나만 붙음 (중간 "있음" 라인 폐기 — 헤더의 시각이 폴링
+  // 동작 확인 신호를 이미 줌).
   const template = [
-    { label: `토큰 판다 v${APP_VERSION}`, enabled: false },
+    { label: formatHeaderLabel(APP_VERSION, lastUpdateCheck), enabled: false },
   ];
-  // 업데이트 폴링 상태/시각 라인은 *새 버전이 감지된 경우* 에만 노출 (v1.97).
-  // 최신/실패/대기 상태는 메뉴를 어지럽힐 뿐이라 숨김. updateInfo 가 있을 때
-  // formatUpdateCheckLabel 은 "🆕 v.. 있음 · HH:MM 확인" 형태라 바로 아래의
-  // "🆕 v.. 설치" 버튼과 짝을 이룬다.
   if (updateInfo) {
-    template.push({ label: formatUpdateCheckLabel(lastUpdateCheck, updateInfo), enabled: false });
     template.push({
       label: installInProgress
         ? `🆕 v${updateInfo.latest_version} 설치 중…`

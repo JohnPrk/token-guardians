@@ -28,6 +28,19 @@ function formatUpdateCheckLabel(lastUpdateCheck, updateInfo) {
   return `확인 실패 · ${hh}:${mm} 시도`;
 }
 
+// 트레이 메뉴 헤더 한 줄: "토큰 판다 v1.97.0 (03:18 확인)". 마지막 폴링 시각이
+// 있으면 괄호로 붙여 한 줄에 통합한다. 폴링 전(lastUpdateCheck=null)이면 시각
+// 부분 생략. 폴링 성공/실패는 구분하지 않음 — 새 버전이 실제로 감지된 경우엔
+// 별도 "🆕 v.. 설치" 버튼이 헤더 바로 아래에 붙는 게 더 강한 신호 (v1.98).
+function formatHeaderLabel(appVersion, lastUpdateCheck) {
+  const base = `토큰 판다 v${appVersion}`;
+  if (!lastUpdateCheck || !lastUpdateCheck.at) return base;
+  const d = lastUpdateCheck.at;
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${base} (${hh}:${mm} 확인)`;
+}
+
 // 5h 잔량(0-1) → 대나무 트레이 아이콘 tier suffix (build/tray/tray-<tier>.png).
 // 잔량이 많을수록 줄기 많은 아이콘. README: 75%+ 4줄기 / 50%+ 3줄기 / 25%+ 2줄기 /
 // 25% 미만 1줄기. 비정상 입력(NaN 등)은 가장 비어있는 25 로.
@@ -39,4 +52,4 @@ function bambooTierForRemaining(remaining) {
   return "25";
 }
 
-module.exports = { isAuthFailure, formatUpdateCheckLabel, bambooTierForRemaining };
+module.exports = { isAuthFailure, formatUpdateCheckLabel, formatHeaderLabel, bambooTierForRemaining };
