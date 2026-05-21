@@ -128,41 +128,63 @@ describe("buildMacInstallScript", () => {
   });
 });
 
+// BEHAVIOR CHANGE (v1.75.0 패치): buildWindowsInstallScript 3번째 인자가
+// `bundleId` (`com.tnew.clauddeskpet`) → `regKey` (`토큰 판다`) 로 바뀜.
+// 사유: Tauri NSIS 가 HKCU Uninstall 하위 sub-key 를 productName 으로 박지,
+// bundleId 로 안 박음 (v1.74.8 을 실제 설치해서 확인 — 키는 `토큰 판다`).
+// 기존 테스트가 `com.tnew.clauddeskpet` 가 스크립트에 박혀있다고 단언했던
+// 가정이 사실과 달랐어서 정정. 디폴트 process 이름도 `토큰 판다.exe` → `app.exe`
+// (실제 install 산출물).
 describe("buildWindowsInstallScript", () => {
   it("includes the exact installer path (JSON-quoted, handles spaces)", () => {
-    const s = buildWindowsInstallScript("C:\\Temp\\with space.exe", "토큰 판다.exe", "com.x");
+    const s = buildWindowsInstallScript("C:\\Temp\\with space.exe", "app.exe", "토큰 판다");
     // Windows backslash 가 JSON 인코딩으로 들어가야 함
     expect(s).toContain('"C:\\\\Temp\\\\with space.exe"');
   });
 
-  it("includes the process name and bundle ID for registry lookup", () => {
-    const s = buildWindowsInstallScript("C:\\a.exe", "토큰 판다.exe", "com.tnew.clauddeskpet");
-    expect(s).toContain("토큰 판다.exe");
-    expect(s).toContain("com.tnew.clauddeskpet");
+  it("includes process name and productName regKey (Tauri NSIS uses productName as Uninstall sub-key)", () => {
+    const s = buildWindowsInstallScript("C:\\a.exe", "app.exe", "토큰 판다");
+    expect(s).toContain("app.exe");
+    expect(s).toContain("토큰 판다");
   });
 
   it("waits for old process by base name (without .exe), then force-kills if needed", () => {
-    const s = buildWindowsInstallScript("C:\\a.exe", "토큰 판다.exe", "com.x");
-    // GetFileNameWithoutExtension → "토큰 판다" 로 Get-Process 호출
+    const s = buildWindowsInstallScript("C:\\a.exe", "app.exe", "토큰 판다");
+    // GetFileNameWithoutExtension → "app" 로 Get-Process 호출
     expect(s).toContain("GetFileNameWithoutExtension");
     expect(s).toContain("Get-Process");
     expect(s).toContain("Stop-Process -Force");
   });
 
   it("runs installer silently (NSIS /S) and waits for exit", () => {
-    const s = buildWindowsInstallScript("C:\\a.exe", "x.exe", "com.x");
+    const s = buildWindowsInstallScript("C:\\a.exe", "app.exe", "토큰 판다");
     expect(s).toContain("/S");
     expect(s).toMatch(/Start-Process.*-Wait/);
   });
 
-  it("reads InstallLocation from HKCU Uninstall registry key (both braced and unbraced)", () => {
-    const s = buildWindowsInstallScript("C:\\a.exe", "x.exe", "com.x");
+  it("reads InstallLocation from HKCU Uninstall\\<productName> registry key", () => {
+    const s = buildWindowsInstallScript("C:\\a.exe", "app.exe", "토큰 판다");
     expect(s).toContain("HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\");
     expect(s).toContain("InstallLocation");
   });
 
+  it("strips quotes from InstallLocation value (NSIS writes it quoted)", () => {
+    // 실측: registry 값이 `"C:\Users\...\토큰 판다"` 처럼 따옴표 포함.
+    // Join-Path 가 그 따옴표를 path 에 끼워넣지 않게 .Trim('"') 필수.
+    const s = buildWindowsInstallScript("C:\\a.exe", "app.exe", "토큰 판다");
+    expect(s).toMatch(/\.Trim\('"'\)/);
+  });
+
+  it("fallback path uses %LOCALAPPDATA%\\<productName>\\app.exe (no Programs subfolder)", () => {
+    // Tauri NSIS currentUser 모드는 %LOCALAPPDATA% 바로 아래 productName 폴더
+    // 를 만든다. Programs\\ 가 끼지 않음 — 그래서 fallback 도 그대로.
+    const s = buildWindowsInstallScript("C:\\a.exe", "app.exe", "토큰 판다");
+    expect(s).toContain('Join-Path $env:LOCALAPPDATA');
+    expect(s).not.toContain("Programs\\\\");
+  });
+
   it("launches new app hidden (background) after install", () => {
-    const s = buildWindowsInstallScript("C:\\a.exe", "x.exe", "com.x");
+    const s = buildWindowsInstallScript("C:\\a.exe", "app.exe", "토큰 판다");
     expect(s).toMatch(/Start-Process -FilePath \$exe -WindowStyle Hidden/);
   });
 });

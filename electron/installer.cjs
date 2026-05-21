@@ -103,11 +103,13 @@ open "$APP_PATH"
 // Windows PowerShell 스크립트: 옛 프로세스 종료 대기 → NSIS /S 사일런트 설치
 // → registry InstallLocation 으로 새 exe 경로 확인 → 백그라운드 실행.
 // UTF-8 BOM 으로 저장해야 한글 파일명(`토큰 판다.exe`) 이 PS 5.1 에서 정상.
-function buildWindowsInstallScript(installerPath, processName, bundleId) {
+// regKey 인자는 HKCU Uninstall 하위의 sub-key 이름. Tauri NSIS 는 productName
+// (`토큰 판다`) 을 그대로 키로 쓴다 — bundleId 아님 (v1.75.0 실측으로 정정).
+function buildWindowsInstallScript(installerPath, processName, regKey) {
   return `$ErrorActionPreference = 'SilentlyContinue'
 $proc = ${JSON.stringify(processName)}
 $installerPath = ${JSON.stringify(installerPath)}
-$bundleId = ${JSON.stringify(bundleId)}
+$regKey = ${JSON.stringify(regKey)}
 
 # 1) 옛 프로세스 종료 대기 (최대 30초)
 $procBase = [System.IO.Path]::GetFileNameWithoutExtension($proc)
@@ -123,22 +125,20 @@ Get-Process -Name $procBase -ErrorAction SilentlyContinue | Stop-Process -Force 
 $proc2 = Start-Process -FilePath $installerPath -ArgumentList '/S' -Wait -PassThru -WindowStyle Hidden
 if ($proc2.ExitCode -ne 0) { exit $proc2.ExitCode }
 
-# 3) registry 에서 InstallLocation 찾기 (Tauri NSIS 가 currentUser 모드로 박음)
+# 3) registry InstallLocation — Tauri NSIS 가 HKCU Uninstall 하위 sub-key 를
+# productName 으로 박는다 (bundleId 아님). regKey 인자 = productName.
 $exe = $null
-$keys = @(
-  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\$bundleId",
-  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{$bundleId}"
-)
-foreach ($k in $keys) {
-  $loc = (Get-ItemProperty -Path $k -Name InstallLocation -ErrorAction SilentlyContinue).InstallLocation
-  if ($loc) {
-    $candidate = Join-Path $loc $proc
-    if (Test-Path -LiteralPath $candidate) { $exe = $candidate; break }
-  }
+$key = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\$regKey"
+$loc = (Get-ItemProperty -Path $key -Name InstallLocation -ErrorAction SilentlyContinue).InstallLocation
+if ($loc) {
+  # InstallLocation 이 따옴표로 감싸져 저장돼 있을 수 있음 — strip
+  $loc = $loc.Trim('"')
+  $candidate = Join-Path $loc $proc
+  if (Test-Path -LiteralPath $candidate) { $exe = $candidate }
 }
-# fallback: 일반적인 install 경로 (Tauri NSIS 가 productName 폴더 만듦)
+# fallback: 실측 install 경로 (Tauri NSIS currentUser 모드 → %LOCALAPPDATA%\<productName>\app.exe)
 if (-not $exe) {
-  $fallback = Join-Path $env:LOCALAPPDATA ("Programs\\토큰 판다\\" + $proc)
+  $fallback = Join-Path $env:LOCALAPPDATA ($regKey + "\\" + $proc)
   if (Test-Path -LiteralPath $fallback) { $exe = $fallback }
 }
 
@@ -214,9 +214,11 @@ async function downloadAndStartInstall(asset, opts) {
     // nohup 효과는 detached + ignore stdio 로 충분 (부모 종료시 SIGHUP 안 받음)
     await spawnDetached("bash", [scriptPath]);
   } else if (platform === "win32") {
-    const processName = opts.processName || "토큰 판다.exe";
-    const bundleId = opts.bundleId || "com.tnew.clauddeskpet";
-    const script = buildWindowsInstallScript(dest, processName, bundleId);
+    // Tauri NSIS 실측: exe 이름은 productName 이 아니라 `app.exe`. registry 의
+    // HKCU Uninstall 하위 sub-key 는 productName(`토큰 판다`) 그대로.
+    const processName = opts.processName || "app.exe";
+    const regKey = opts.regKey || "토큰 판다";
+    const script = buildWindowsInstallScript(dest, processName, regKey);
     const scriptPath = path.join(tmpDir, "tp-install.ps1");
     // UTF-8 BOM — PowerShell 5.1 이 .ps1 을 ANSI 로 읽지 않게.
     fs.writeFileSync(scriptPath, "﻿" + script, "utf8");
