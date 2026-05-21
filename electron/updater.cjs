@@ -57,6 +57,23 @@ function parseReleaseResponse(json, currentVersion) {
   };
 }
 
+// GitHub release JSON → assets 정규화 배열. parseReleaseResponse 와 분리:
+// auto-installer (electron/installer.cjs) 가 picked asset 의 download URL 을
+// 필요로 하는데, parseReleaseResponse 는 frozen contract (v1.74.8 시점 시그
+// 니처) 라 확장 안 함.
+function parseReleaseAssets(json) {
+  let r;
+  try { r = JSON.parse(json); } catch { return null; }
+  if (!r || !Array.isArray(r.assets)) return null;
+  return r.assets
+    .map((a) => ({
+      name: typeof a.name === "string" ? a.name : "",
+      browser_download_url:
+        typeof a.browser_download_url === "string" ? a.browser_download_url : "",
+    }))
+    .filter((a) => a.name && a.browser_download_url);
+}
+
 async function fetchWithTimeout(url, headers, ms) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
@@ -88,7 +105,13 @@ async function fetchLatestRelease(currentVersion) {
     return { ok: false, error: `HTTP ${resp.status}` };
   }
   const body = await resp.text();
-  return { ok: true, info: parseReleaseResponse(body, currentVersion) };
+  // assets 도 같이 반환 — installer 가 picked asset URL 필요. info=null 일 때
+  // (이미 최신) 도 assets 는 정상 데이터를 줄 수 있지만 caller 가 안 씀.
+  return {
+    ok: true,
+    info: parseReleaseResponse(body, currentVersion),
+    assets: parseReleaseAssets(body) || [],
+  };
 }
 
 module.exports = {
@@ -96,5 +119,6 @@ module.exports = {
   parseReleaseTag,
   isNewer,
   parseReleaseResponse,
+  parseReleaseAssets,
   RELEASES_URL,
 };

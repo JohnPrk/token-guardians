@@ -10,6 +10,7 @@ const { pathToFileURL } = require("url");
 const claudeApi = require("./claudeApi.cjs");
 const createStore = require("./store.cjs");
 const updater = require("./updater.cjs");
+const installer = require("./installer.cjs");
 const { isAuthFailure, formatUpdateCheckLabel } = require("./helpers.cjs");
 
 app.setName("token-panda");
@@ -46,10 +47,13 @@ let prepaid = null; // { dollars, fetched_at } | null
 let prepaidError = null; // string | null
 
 // 업데이트 체커 (1h 폴링) 상태. updateInfo = 새 버전 있음(없으면 null),
-// lastUpdateCheck = 마지막 polling 시각 + 성공 여부 (트레이 헤더 표시용).
+// lastUpdateCheck = 마지막 polling 시각 + 성공 여부 (트레이 헤더 표시용),
+// updateAssets = release JSON 의 assets (auto-installer 가 picked asset URL 필요).
 let updateInfo = null; // { latest_version, html_url } | null
+let updateAssets = []; // [{ name, browser_download_url }]
 let lastUpdateCheck = null; // { at: Date, ok: boolean } | null
 let updateTimer = null;
+let installInProgress = false; // "🆕 설치" 중복 클릭 가드
 
 // 401/403/404 첫 발생 시 1회만 설정창을 띄우는 latch. 다음 성공 시 풀려서
 // 재만료 사이클에 다시 한 번만 동작. 없으면 폴러가 30초마다 설정창을 다시
@@ -228,9 +232,36 @@ function startPoller() {
 // 가 "확인 실패 · HH:MM" 으로 표시된다.
 async function checkLatestRelease() {
   const r = await updater.fetchLatestRelease(APP_VERSION);
-  if (r.ok) updateInfo = r.info; // null 이면 이미 최신
+  if (r.ok) {
+    updateInfo = r.info; // null 이면 이미 최신
+    updateAssets = Array.isArray(r.assets) ? r.assets : [];
+  }
   lastUpdateCheck = { at: new Date(), ok: r.ok };
   rebuildTray();
+}
+
+// "🆕 설치" 클릭 핸들러 — 진짜 자동설치 흐름. 다운로드 + 백그라운드 스크립트
+// 시작 → 현재 앱 즉시 quit. 스크립트가 옛 프로세스 종료 대기 후 설치 + 새
+// 앱 실행을 책임진다. 사용자가 본 입장에서는 "메뉴 클릭 → 잠시 뒤 새 버전이
+// 떠 있음." 설치 가능한 asset 이 없으면 (Linux 등 또는 자산 누락) Releases
+// 페이지를 브라우저로 fallback 으로 연다.
+async function handleInstallClick() {
+  if (installInProgress) return;
+  const asset = installer.pickAssetForPlatform(updateAssets, process.platform);
+  if (!asset) {
+    if (updateInfo && updateInfo.html_url) shell.openExternal(updateInfo.html_url);
+    return;
+  }
+  installInProgress = true;
+  try {
+    await installer.downloadAndStartInstall(asset, {});
+    quitting = true;
+    app.quit();
+  } catch (e) {
+    console.error("[tp] auto-install failed:", e);
+    installInProgress = false;
+    if (updateInfo && updateInfo.html_url) shell.openExternal(updateInfo.html_url);
+  }
 }
 
 // 부팅 3초 후 + 1시간 주기. anonymous GitHub API 가 60 req/hr 이라 1회/hr 면 안전.
@@ -252,12 +283,16 @@ function rebuildTray() {
     // 가 시각으로 구분할 수 있게 (v1.72 회귀).
     { label: formatUpdateCheckLabel(lastUpdateCheck, updateInfo), enabled: false },
   ];
-  // 새 버전이 감지되면 버전 라벨 바로 아래에 "🆕 v.. 설치" — 클릭 시 브라우저로
-  // Releases 페이지를 연다 (Electron MVP — 자동 dmg 다운로드/설치는 후속).
-  if (updateInfo && updateInfo.html_url) {
+  // 새 버전이 감지되면 버전 라벨 바로 아래에 "🆕 v.. 설치" — 클릭 시 백그
+  // 라운드 자동 설치 흐름 (다운로드 → 옛 프로세스 종료 → 사일런트 설치 →
+  // 새 앱 실행). 설치 가능한 asset 이 없으면 Releases 페이지로 fallback.
+  if (updateInfo) {
     template.push({
-      label: `🆕 v${updateInfo.latest_version} 설치`,
-      click: () => shell.openExternal(updateInfo.html_url),
+      label: installInProgress
+        ? `🆕 v${updateInfo.latest_version} 설치 중…`
+        : `🆕 v${updateInfo.latest_version} 설치`,
+      enabled: !installInProgress,
+      click: () => handleInstallClick(),
     });
   }
   template.push(

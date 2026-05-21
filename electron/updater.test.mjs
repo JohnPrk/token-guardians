@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import updater from "./updater.cjs";
-const { parseReleaseTag, isNewer, parseReleaseResponse } = updater;
+const { parseReleaseTag, isNewer, parseReleaseResponse, parseReleaseAssets } = updater;
 
 describe("parseReleaseTag", () => {
   it("parses 3-segment tags with optional v prefix", () => {
@@ -115,5 +115,59 @@ describe("parseReleaseResponse", () => {
       latest_version: "2.0.0",
       html_url: null,
     });
+  });
+});
+
+// v1.75.0 추가 — auto-installer 가 asset URL 필요. parseReleaseResponse 의
+// 시그니처는 frozen 이라 별도 함수로 분리.
+describe("parseReleaseAssets", () => {
+  it("extracts assets array with name + browser_download_url", () => {
+    const json = JSON.stringify({
+      tag_name: "v1.75.0",
+      assets: [
+        { name: "token-panda_1.75.0_aarch64.dmg", browser_download_url: "https://x/dmg" },
+        { name: "token-panda_1.75.0_x64-setup.exe", browser_download_url: "https://x/exe" },
+      ],
+    });
+    expect(parseReleaseAssets(json)).toEqual([
+      { name: "token-panda_1.75.0_aarch64.dmg", browser_download_url: "https://x/dmg" },
+      { name: "token-panda_1.75.0_x64-setup.exe", browser_download_url: "https://x/exe" },
+    ]);
+  });
+
+  it("filters out entries missing name or url", () => {
+    const json = JSON.stringify({
+      assets: [
+        { name: "good.dmg", browser_download_url: "https://x" },
+        { name: "", browser_download_url: "https://x" }, // empty name
+        { name: "bad.dmg" }, // missing url
+        {},
+      ],
+    });
+    expect(parseReleaseAssets(json)).toEqual([
+      { name: "good.dmg", browser_download_url: "https://x" },
+    ]);
+  });
+
+  it("returns null on malformed JSON", () => {
+    expect(parseReleaseAssets("not json")).toBeNull();
+  });
+
+  it("returns null when assets field missing or not array", () => {
+    expect(parseReleaseAssets(JSON.stringify({ tag_name: "v1.0.0" }))).toBeNull();
+    expect(parseReleaseAssets(JSON.stringify({ assets: "string" }))).toBeNull();
+  });
+
+  it("returns empty array when assets[] is empty", () => {
+    expect(parseReleaseAssets(JSON.stringify({ assets: [] }))).toEqual([]);
+  });
+
+  it("does not require tag_name (assets parsing is independent)", () => {
+    const json = JSON.stringify({
+      assets: [{ name: "x.exe", browser_download_url: "https://y" }],
+    });
+    expect(parseReleaseAssets(json)).toEqual([
+      { name: "x.exe", browser_download_url: "https://y" },
+    ]);
   });
 });
