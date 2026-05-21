@@ -751,7 +751,13 @@ fn open_settings_window(app: AppHandle) -> Result<(), String> {
         // v1.75: Cargo `devtools` feature 만으로는 WebView2 우클릭 inspector
         // 가 안 켜진다. builder 에 명시적으로 활성. F12 단축키 + 우클릭 →
         // Inspect 둘 다 동작. release 빌드에서도 디버깅 동선 유지.
-        .devtools(true);
+        .devtools(true)
+        // v1.74.6: Windows WebView2에서 `__TAURI_INTERNALS__` 주입이 인라인
+        // script보다 늦게 도착하는 레이스가 관찰됨 → 라벨 조회 실패 → PetApp
+        // 으로 떨어지는 회귀. initialization_script 는 navigation 전에 박혀
+        // 어떤 페이지 JS보다 먼저 실행되므로 sentinel 글로벌로 라벨을 박아
+        // 인라인 가드/main.tsx/App.tsx 가 안전하게 1순위로 읽도록 한다.
+        .initialization_script("window.__TAURI_VIEW_LABEL__='settings';");
 
     let window = builder.build().map_err(|e| e.to_string())?;
     let _ = window.set_focus();
@@ -786,7 +792,11 @@ fn open_onboarding_window(app: AppHandle) -> Result<(), String> {
         .skip_taskbar(false)
         .center()
         .visible(true)
-        .devtools(true);
+        .devtools(true)
+        // v1.74.6: open_settings_window 와 동일 사유. Windows WebView2 에서
+        // `__TAURI_INTERNALS__` 주입 레이스로 라벨 조회가 실패해 PetApp 이
+        // 시작하기 창에 렌더되는 회귀 확인 → sentinel 글로벌로 박아 우회.
+        .initialization_script("window.__TAURI_VIEW_LABEL__='onboarding';");
 
     let window = builder.build().map_err(|e| e.to_string())?;
     let _ = window.set_focus();

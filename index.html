@@ -14,16 +14,22 @@
          이 분기 밖이라 평소처럼 클릭 받음.
          v1.74.3: URL 의존(query/hash 둘 다) 을 Windows WebView2 가 떨궈서
          Tauri 의 내부 글로벌 (__TAURI_INTERNALS__.metadata.currentWindow.label)
-         로 직접 라벨 조회. Tauri 부트스트랩이 DocumentStart 타이밍에
-         주입되므로 이 인라인 스크립트 시점엔 이미 채워져 있음. dev 브라우저
-         (Tauri 미주입) 폴백으로 URL 검사 유지. -->
+         로 직접 라벨 조회.
+         v1.74.6: Windows WebView2 에서 인라인 script가 `__TAURI_INTERNALS__`
+         주입보다 먼저 실행되는 레이스 확인 → label null → URL 폴백 →
+         hash 도 떨궈져 isPet=true → 시작하기/설정 창까지 pointer-events:none
+         박혀 검정/빈 화면 회귀. Rust 측에서 initialization_script 로
+         `__TAURI_VIEW_LABEL__` 글로벌을 박아 1순위 sentinel 로 사용. -->
     <script>
       (function () {
-        var label = null;
-        try {
-          var m = window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.metadata;
-          label = (m && m.currentWindow && m.currentWindow.label) || null;
-        } catch (e) {}
+        var injected = window.__TAURI_VIEW_LABEL__ || null;
+        var label = injected;
+        if (!label) {
+          try {
+            var m = window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.metadata;
+            label = (m && m.currentWindow && m.currentWindow.label) || null;
+          } catch (e) {}
+        }
         var isPet;
         if (label !== null) {
           isPet = label === "main";

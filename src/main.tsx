@@ -15,17 +15,26 @@ import App from './App.tsx'
 // 안전하게 PetApp 으로 떨어지는 폴백.
 {
   let isPetWindow = false
-  try {
-    const label = getCurrentWindow().label
-    isPetWindow = label === 'main'
-  } catch {
-    // 브라우저 dev 컨텍스트 — URL 폴백 (옛 hash/query 둘 다 검사).
-    const raw = window.location.hash.startsWith('#')
-      ? window.location.hash.slice(1)
-      : window.location.hash
-    const hashView = new URLSearchParams(raw).get('view')
-    const queryView = new URLSearchParams(window.location.search).get('view')
-    isPetWindow = !hashView && !queryView
+  // v1.74.6: Rust 측 initialization_script sentinel 최우선. Windows WebView2
+  // 에서 `getCurrentWindow().label` 이 `__TAURI_INTERNALS__` 주입 레이스로
+  // 빈 값을 반환하던 회귀 우회. App.tsx 의 viewFromTauri 와 동일 사유.
+  const injected = (window as unknown as { __TAURI_VIEW_LABEL__?: string })
+    .__TAURI_VIEW_LABEL__
+  if (injected) {
+    isPetWindow = injected === 'main'
+  } else {
+    try {
+      const label = getCurrentWindow().label
+      isPetWindow = label === 'main'
+    } catch {
+      // 브라우저 dev 컨텍스트 — URL 폴백 (옛 hash/query 둘 다 검사).
+      const raw = window.location.hash.startsWith('#')
+        ? window.location.hash.slice(1)
+        : window.location.hash
+      const hashView = new URLSearchParams(raw).get('view')
+      const queryView = new URLSearchParams(window.location.search).get('view')
+      isPetWindow = !hashView && !queryView
+    }
   }
   if (isPetWindow) {
     document.documentElement.style.pointerEvents = 'none'

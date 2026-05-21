@@ -168,7 +168,19 @@ async function switchActiveAccount(next: AccountsConfig): Promise<void> {
 // URL 라우팅은 dev 모드(vite localhost 직접 접근)와 preview 진입을 위한
 // 폴백으로만 유지.
 function viewFromTauri(): "settings" | "onboarding" | "preview" | null {
-  // Tauri 컨텍스트에서 윈도우 라벨로 1차 라우팅. Tauri 미주입 환경(예:
+  // v1.74.6: Rust 측 `initialization_script` 가 navigation 전에 박는
+  // sentinel 글로벌을 최우선 확인. `getCurrentWindow().label` 은 Windows
+  // WebView2 에서 `__TAURI_INTERNALS__` 주입 레이스로 빈 값/예외가 나는
+  // 회귀가 v1.74.5 에서 확인됨 → 시작하기 창에 PetApp 이 렌더됨. sentinel
+  // 은 그 레이스를 우회한다.
+  const injected = (window as unknown as { __TAURI_VIEW_LABEL__?: string })
+    .__TAURI_VIEW_LABEL__;
+  if (injected === "settings") return "settings";
+  if (injected === "onboarding") return "onboarding";
+  if (injected === "preview") return "preview";
+  if (injected === "main") return null;
+
+  // Tauri 컨텍스트에서 윈도우 라벨로 2차 라우팅. Tauri 미주입 환경(예:
   // vite dev 서버를 브라우저로 직접 띄운 케이스) 에선 throw 또는 빈 라벨
   // 가능성이 있어 try/catch 후 URL 폴백.
   try {
