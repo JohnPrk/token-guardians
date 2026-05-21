@@ -9,6 +9,7 @@ const path = require("path");
 const { pathToFileURL } = require("url");
 const claudeApi = require("./claudeApi.cjs");
 const createStore = require("./store.cjs");
+const updater = require("./updater.cjs");
 
 app.setName("token-panda");
 
@@ -42,6 +43,12 @@ let lastError = null;
 let pollTimer = null;
 let prepaid = null; // { dollars, fetched_at } | null
 let prepaidError = null; // string | null
+
+// 업데이트 체커 (1h 폴링) 상태. updateInfo = 새 버전 있음(없으면 null),
+// lastUpdateCheck = 마지막 polling 시각 + 성공 여부 (트레이 헤더 표시용).
+let updateInfo = null; // { latest_version, html_url } | null
+let lastUpdateCheck = null; // { at: Date, ok: boolean } | null
+let updateTimer = null;
 
 // 401/403/404 첫 발생 시 1회만 설정창을 띄우는 latch. 다음 성공 시 풀려서
 // 재만료 사이클에 다시 한 번만 동작. 없으면 폴러가 30초마다 설정창을 다시
@@ -219,10 +226,42 @@ function startPoller() {
   pollTimer = setInterval(pollOnce, 30000);
 }
 
+// GitHub Releases 한 번 조회 → updateInfo + lastUpdateCheck 갱신 → 트레이
+// rebuild. 실패해도 기존 updateInfo 는 보존(네트워크 블립으로 "🆕 설치"가
+// 사라졌다 다시 나타나지 않게). lastUpdateCheck.ok 만 false 로 바뀌어서 헤더
+// 가 "확인 실패 · HH:MM" 으로 표시된다.
+async function checkLatestRelease() {
+  const r = await updater.fetchLatestRelease(APP_VERSION);
+  if (r.ok) updateInfo = r.info; // null 이면 이미 최신
+  lastUpdateCheck = { at: new Date(), ok: r.ok };
+  rebuildTray();
+}
+
+// 부팅 3초 후 + 1시간 주기. anonymous GitHub API 가 60 req/hr 이라 1회/hr 면 안전.
+function startUpdateChecker() {
+  setTimeout(() => {
+    checkLatestRelease().catch((e) => console.warn("[tp] update check failed:", e));
+  }, 3000);
+  if (updateTimer) clearInterval(updateTimer);
+  updateTimer = setInterval(() => {
+    checkLatestRelease().catch((e) => console.warn("[tp] update check failed:", e));
+  }, 60 * 60 * 1000);
+}
+
 function rebuildTray() {
   if (!tray) return;
   const template = [
     { label: `토큰 판다 v${APP_VERSION}`, enabled: false },
+  ];
+  // 새 버전이 감지되면 버전 라벨 바로 아래에 "🆕 v.. 설치" — 클릭 시 브라우저로
+  // Releases 페이지를 연다 (Electron MVP — 자동 dmg 다운로드/설치는 후속).
+  if (updateInfo && updateInfo.html_url) {
+    template.push({
+      label: `🆕 v${updateInfo.latest_version} 설치`,
+      click: () => shell.openExternal(updateInfo.html_url),
+    });
+  }
+  template.push(
     { type: "separator" },
     {
       label: "펫 보이기/숨기기",
@@ -244,7 +283,7 @@ function rebuildTray() {
         { label: "5시간 + 주간 + $", type: "radio", checked: trayMode === "all", click: () => broadcast("tray-set-mode", "all") },
       ],
     },
-  ];
+  );
 
   if (trayAccounts.length > 0) {
     template.push({
@@ -421,6 +460,7 @@ app.whenReady().then(() => {
   createTray();
   createPetWindow();
   startPoller();
+  startUpdateChecker();
   console.log(
     `[tp] ready v${APP_VERSION} | mode=${DEV_URL ? "dev(" + DEV_URL + ")" : "prod(dist)"} | userData=${app.getPath("userData")}`,
   );
