@@ -290,7 +290,16 @@ function rebuildTray() {
         }
       },
     },
-    { label: "지금 새로고침 ↻", click: () => pollOnce() },
+    {
+      // usage 30s poller cycle + 1h release checker cycle 둘 다 즉시 한 번
+      // 더 돌려서, 사용자가 "지금 새로고침" 누르면 트레이 헤더 timestamp 가
+      // 갱신되는 게 시각적 신호로 동작한다 (v1.51 회귀).
+      label: "지금 새로고침 ↻",
+      click: () => {
+        pollOnce();
+        checkLatestRelease().catch((e) => console.warn("[tp] update check failed:", e));
+      },
+    },
     {
       label: "표시 모드",
       submenu: [
