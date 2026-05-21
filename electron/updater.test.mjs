@@ -171,3 +171,14 @@ describe("parseReleaseAssets", () => {
     ]);
   });
 });
+
+// v1.85 (Electron 배포 파이프라인 이전) 신규 안전망.
+describe("RELEASES_URL", () => {
+  it("points at JohnPrk/token-panda-v2 (not the deprecated token-panda repo)", () => {
+    // 옛 레포 (v1.74.6 에서 멈춤) 를 폴링하면 신규 사용자는 v1.75 이상을
+    // 영영 못 받는다. v1.85 본 [대] 의 핵심 인계 보장.
+    expect(updater.RELEASES_URL).toBe(
+      "https://api.github.com/repos/JohnPrk/token-panda-v2/releases/latest",
+    );
+  });
+});

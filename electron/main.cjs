@@ -25,8 +25,12 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 const DEV_URL = process.env.TP_DEV_URL || null; // dev 러너가 주입 (없으면 dist 로드)
-const ICON = path.join(__dirname, "..", "src-tauri", "icons", "icon.ico");
-const TRAY_ICON = path.join(__dirname, "..", "src-tauri", "icons", "tray.png");
+// 아이콘은 electron-builder buildResources(`build/`) 컨벤션. 패키지 안에선
+// process.resourcesPath 하위로 이동하지만, dev 실행에선 working tree 루트의
+// build/ 를 그대로 본다.
+const RESOURCE_ROOT = app.isPackaged ? process.resourcesPath : path.join(__dirname, "..");
+const ICON = path.join(RESOURCE_ROOT, "build", "icon.ico");
+const TRAY_ICON = path.join(RESOURCE_ROOT, "build", "tray.png");
 
 let store;
 let petWin = null;

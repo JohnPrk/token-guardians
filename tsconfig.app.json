@@ -7,6 +7,18 @@
     "types": ["vite/client"],
     "skipLibCheck": true,
 
+    /* `@tauri-apps/*` 패키지는 v1.85 에서 제거됨. 프론트엔드 코드는 그대로 두고
+       (App.tsx 의 import 문 변경 없음), tsc 와 vite 양쪽에 같은 alias 를 박아
+       src/tauri-shim/* 로 해소한다. vite.config.ts 의 resolve.alias 와 짝.
+       TS6 부터 bundler moduleResolution 은 baseUrl 없이 paths 만으로 해소된다. */
+    "paths": {
+      "@tauri-apps/api/core": ["./src/tauri-shim/core.ts"],
+      "@tauri-apps/api/event": ["./src/tauri-shim/event.ts"],
+      "@tauri-apps/api/window": ["./src/tauri-shim/window.ts"],
+      "@tauri-apps/plugin-store": ["./src/tauri-shim/plugin-store.ts"],
+      "@tauri-apps/plugin-notification": ["./src/tauri-shim/plugin-notification.ts"]
+    },
+
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,

@@ -8,8 +8,10 @@
 // 순수 헬퍼(parseReleaseTag, isNewer, parseReleaseResponse)는 한 줄 문법으로
 // 동일 케이스를 cargo test 와 1:1 매칭.
 
+// 2026-05-21: 구 레포 JohnPrk/token-panda 는 v1.74.6 에서 멈춤. v1.75.0 이상은
+// JohnPrk/token-panda-v2 가 정식 release 경로 (Electron 배포 파이프라인 이전).
 const RELEASES_URL =
-  "https://api.github.com/repos/JohnPrk/token-panda/releases/latest";
+  "https://api.github.com/repos/JohnPrk/token-panda-v2/releases/latest";
 const HTTP_TIMEOUT_MS = 10000;
 
 // "v1.24.0" / "1.24" / "1.74.8" → [major, minor, patch]. 두 segment 는 patch=0.

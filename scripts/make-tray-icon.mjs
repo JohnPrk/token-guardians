@@ -11,7 +11,7 @@ import sharp from "sharp";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
-const out = resolve(root, "src-tauri/icons/tray.png");
+const out = resolve(root, "build/tray.png");
 
 const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44">

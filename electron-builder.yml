@@ -1,0 +1,83 @@
+# electron-builder 설정 (Tauri 빌드 파이프라인 대체).
+#
+# 핵심 의도:
+# - 사용자가 메뉴바/dock 에 보는 이름은 그대로 "토큰 판다" 유지하되, 파일시스템
+#   bundle 이름은 ASCII (TokenPanda.app) — Electron 의 helper.app 경로 lookup
+#   이 NFC/NFD unicode encoding mismatch 로 SIGTRAP 나는 회귀를 회피.
+# - 산출물 이름은 처음부터 `token-panda_${version}_*` 패턴으로 박는다. v1.74.8
+#   에서 productName 한글 prefix 가 GitHub asset 업로드 시 잘려 `_1.74.8_*`
+#   으로 올라간 회귀를 *빌드 시점*에 차단 (rename post-job 폐기).
+# - 아이콘은 build/icon.png(1024) 한 장만 두면 electron-builder 가 .icns/.ico
+#   를 알아서 생성. 기존 src-tauri/icons/ 의 다양한 PNG 는 더 이상 필요 없음.
+
+appId: com.tnew.clauddeskpet
+# productName 은 *파일시스템 식별자 + Electron 내부 helper 경로 lookup* 에
+# 쓰인다. Korean (NFC/NFD encoding mismatch) 이 들어가면 Electron 의
+# `electron_main_delegate_mac.mm` 가 Helper.app path 해석에서 SIGTRAP.
+# → ASCII 로 두고, 사용자가 메뉴바/Finder 에서 보는 이름은 아래 mac.extendInfo
+# 의 CFBundleDisplayName 으로 "토큰 판다" 로 띄운다.
+productName: "TokenPanda"
+copyright: "Copyright © 2026 JohnPrk"
+
+directories:
+  buildResources: build
+  output: release
+
+# Electron 33 + electron-builder 26 조합에서 asar 패키징 직후 Info.plist 에
+# 박는 ElectronAsarIntegrity hash 가 *실제 app.asar SHA256* 과 어긋나는 회귀가
+# 있어 V8 가 SIGTRAP 으로 abort 한다. 임시 회피로 asar 통째 비활성화. 후속
+# [소] 로 electron-builder 버그 fix 가 올라오면 asar=true 복원 고려.
+asar: false
+
+# asar 안에 들어갈 런타임 파일들. node_modules 는 electron-builder 가
+# productionDeps 만 자동으로 추린다.
+files:
+  - dist/**
+  - electron/**
+  - package.json
+  - "!**/*.test.mjs"
+  - "!**/*.test.ts"
+  - "!src-tauri/**"
+
+# 런타임에 process.resourcesPath 하위로 풀려야 하는 정적 자산. main.cjs 가
+# path.join(process.resourcesPath, "build", "tray.png") 로 읽는다.
+extraResources:
+  - from: build/tray.png
+    to: build/tray.png
+  - from: build/tray
+    to: build/tray
+  - from: build/icon.ico
+    to: build/icon.ico
+
+mac:
+  category: public.app-category.developer-tools
+  # CFBundleName 은 productName(=TokenPanda) 그대로 — Electron helper 가
+  # CFBundleName 으로 helper.app path 를 lookup 해서 NFC/NFD mismatch SIGTRAP
+  # 회피. 사용자가 dock/menubar 에 보는 이름만 CFBundleDisplayName 으로
+  # "토큰 판다" 으로 override.
+  extendInfo:
+    CFBundleDisplayName: "토큰 판다"
+  target:
+    - target: dmg
+      arch:
+        - arm64
+  # arm64 macOS 는 어떤 형태든 서명이 필요하지만, electron-builder 가 default
+  # 로 linker-signed adhoc 그대로 둔다 (ASCII productName 일 땐 그게 통과). 별도
+  # codesign 호출은 안 함.
+  identity: null
+  artifactName: "token-panda_${version}_${arch}.${ext}"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: "token-panda_${version}_x64-setup.${ext}"
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+
+dmg:
+  artifactName: "token-panda_${version}_${arch}.${ext}"

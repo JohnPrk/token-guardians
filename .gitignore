@@ -23,9 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 
-# Tauri / Rust
-src-tauri/target
-src-tauri/gen
+# electron-builder 빌드 산출물 (.dmg/.exe/.app). Electron Framework 가
+# 100MB 를 넘어 GitHub push size limit 에 걸린다. 산출물은 GitHub Releases
+# 에서 받는 게 정상 경로.
+release
 
 # dev-cycle workflow (local-only)
 features.md

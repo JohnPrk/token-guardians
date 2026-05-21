@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Build the app icon: the existing panda character (src/skins/panda/good.png)
 // cropped to just the head, placed on a soft gray rounded-square background.
-// Renders 1024×1024 → defers to `tauri icon` for every platform asset.
+// Renders 1024×1024 PNG → build/icon.png. electron-builder picks this up
+// at package time and auto-generates icon.icns (mac) / icon.ico (windows)
+// from the single PNG, so we no longer need the `tauri icon` CLI.
 
-import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +13,7 @@ import sharp from "sharp";
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
 const srcPng = resolve(root, "src/skins/panda/good.png");
-const outPng = resolve(root, "scripts/.icon-source.png");
+const outPng = resolve(root, "build/icon.png");
 
 const ICON_SIZE = 1024;
 const RADIUS = 232;
@@ -68,9 +69,3 @@ await sharp(Buffer.from(bgSvg))
   .toFile(outPng);
 
 console.log(`generated ${outPng}`);
-
-const r = spawnSync("npx", ["--yes", "@tauri-apps/cli@latest", "icon", outPng], {
-  stdio: "inherit",
-  cwd: root,
-});
-process.exit(r.status ?? 1);
