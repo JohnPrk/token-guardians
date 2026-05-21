@@ -73,10 +73,12 @@
 실제로 파일이 깨진 게 아니라, 서명/공증 안 된 앱에 macOS가 quarantine 속성(`com.apple.quarantine`)을 붙여서 차단하는 것입니다. 우클릭 → 열기로도 안 뚫리니 quarantine 속성 자체를 제거해야 합니다. 터미널을 열어 아래 한 줄을 입력하세요.
 
 ```bash
-xattr -cr /Applications/토큰\ 판다.app
+xattr -cr /Applications/TokenPanda.app
 ```
 
 이후 다시 더블클릭하면 열립니다. (한 번만 하면 되고, 다음 실행부터는 그냥 클릭으로 실행 가능)
+
+> 파일시스템상의 번들 이름은 `TokenPanda.app` 입니다(위 터미널 경로에 그대로 사용). Finder·메뉴바에는 여전히 "토큰 판다" 로 보이는데, 표시 이름만 `CFBundleDisplayName` 으로 한글로 띄우고 실제 파일명은 ASCII 로 둔 것입니다.
 
 <br>
 
@@ -113,16 +115,16 @@ xattr -cr /Applications/토큰\ 판다.app
 
 ```bash
 git clone https://github.com/JohnPrk/token-panda-v2.git
-cd token-panda
+cd token-panda-v2
 npm install
 
 # macOS: .dmg 빌드
-npm run tauri:build
-# → src-tauri/target/release/bundle/dmg/토큰 판다_<version>_aarch64.dmg
+npm run dist:mac
+# → release/token-panda_<version>_arm64.dmg
 
 # Windows: NSIS .exe 빌드
-npm run tauri build
-# → src-tauri/target/release/bundle/nsis/토큰 판다_<version>_x64-setup.exe
+npm run dist:win
+# → release/token-panda_<version>_x64-setup.exe
 ```
 
 개발 중 빠른 iteration 은 Electron 러너로 (Tauri 빌드 우회, 양 OS 동일):
@@ -134,8 +136,7 @@ npm run electron:dev   # vite + electron 동시 기동, HMR
 빌드 시 필요한 도구:
 
 - macOS 11+ **또는** Windows 10+ (x64)
-- Node 18+
-- Rust toolchain (macOS: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y` · Windows: [rustup-init.exe](https://rustup.rs/) + **Visual Studio Build Tools 2022** "C++ build tools" 워크로드)
+- Node 18+ (Electron 33 + electron-builder 26 빌드. Rust toolchain 불필요 — Tauri 파이프라인에서 이전됨)
 
 <br><br>
 
