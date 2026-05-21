@@ -357,6 +357,11 @@ app.on("window-all-closed", () => {
 });
 
 app.whenReady().then(() => {
+  // macOS: Dock 아이콘 + Cmd+Tab 항목 제거 (accessory mode). 트레이 전용 앱이라
+  // Dock 에 떠 있을 이유가 없고, 구 Tauri 빌드의 `set_macos_accessory_app` 가
+  // 하던 역할을 그대로 재현.
+  if (process.platform === "darwin" && app.dock) app.dock.hide();
+
   store = createStore(app);
   registerIpc();
   createTray();
