@@ -230,4 +230,115 @@ async function autoExtract(rawCookie) {
   return { org_id: orgId, cookie: cookieHeader };
 }
 
-module.exports = { fetchUsage, autoExtract, sanitizeCookie };
+// platform.claude.com 의 prepaid 잔액. claude.ai/usage 와 *호스트가 다르고*
+// Referer/anthropic-client-platform 도 web_console 톤으로 보내야 게이트웨이를
+//통과한다. 성공 시 dollars(소수점 둘째자리까지), 실패 시 throw.
+async function fetchPrepaid(orgId, cookie) {
+  const ck = sanitizeCookie(cookie);
+  const url = `https://platform.claude.com/api/organizations/${orgId}/prepaid/credits`;
+  let resp;
+  try {
+    resp = await fetchWithTimeout(
+      url,
+      {
+        Cookie: ck,
+        Accept: "*/*",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        Referer: "https://platform.claude.com/settings/billing",
+        "anthropic-client-platform": "web_console",
+        "anthropic-client-version": "unknown",
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "User-Agent": UA,
+      },
+      10000,
+    );
+  } catch (e) {
+    throw new Error("prepaid request: " + (e && e.message ? e.message : String(e)));
+  }
+  const body = await resp.text();
+  if (!resp.ok) {
+    throw new Error(`prepaid HTTP ${resp.status} — ${body.slice(0, 200).trim()}`);
+  }
+  let root;
+  try {
+    root = JSON.parse(body);
+  } catch (e) {
+    throw new Error(`prepaid 응답 파싱 실패: ${e.message} (${body.slice(0, 200).trim()})`);
+  }
+  const dollars = parsePrepaidCredits(root);
+  if (dollars == null) {
+    throw new Error(`prepaid 응답에서 잔액 필드를 못 찾음: ${body.slice(0, 300).trim()}`);
+  }
+  return dollars;
+}
+
+// API(/prepaid/credits)는 잔액을 항상 cents 정수로 보낸다 (예: $9.63 → 963).
+// 정수면 무조건 cents 로 해석. 소수가 있는 값(예: 12.34)은 dollars 로 본다.
+// v1.74 의 휴리스틱 임계 폐기 — $963.00 오인 회귀 차단.
+function coerceDollars(v) {
+  if (Number.isInteger(v)) return v / 100;
+  return v;
+}
+
+function round2(v) {
+  return Math.round(v * 100) / 100;
+}
+
+// prepaid 응답 트리 → dollars. 음수는 잔액으로 해석 불가(auto_reload sentinel
+// 같은 케이스) 라 건너뛴다. 콘솔에 안 보이는 정확한 필드명을 모르는 상태라
+// 여러 후보 키를 순서대로 시도, credits[] 배열은 합산, data/summary/prepaid
+// 같은 wrapper 는 재귀.
+function parsePrepaidCredits(root) {
+  if (root == null) return null;
+
+  const directDollarKeys = [
+    "available_dollars", "balance_dollars", "remaining_dollars", "credit_dollars",
+    "balance", "available_balance", "remaining", "credit", "amount",
+  ];
+  for (const k of directDollarKeys) {
+    const v = root[k];
+    if (typeof v === "number") {
+      const d = round2(coerceDollars(v));
+      if (d >= 0) return d;
+    }
+  }
+
+  const centsKeys = [
+    "available_cents", "balance_cents", "remaining_cents", "credit_cents", "amount_cents",
+  ];
+  for (const k of centsKeys) {
+    const v = root[k];
+    if (typeof v === "number") {
+      const d = round2(v / 100);
+      if (d >= 0) return d;
+    }
+  }
+
+  if (Array.isArray(root.credits)) {
+    let sum = 0;
+    let hit = false;
+    for (const item of root.credits) {
+      const d = parsePrepaidCredits(item);
+      if (d != null) {
+        sum += d;
+        hit = true;
+      }
+    }
+    if (hit) return round2(sum);
+  }
+
+  for (const k of ["data", "credits_balance", "summary", "prepaid"]) {
+    const sub = root[k];
+    if (sub != null) {
+      const d = parsePrepaidCredits(sub);
+      if (d != null) return d;
+    }
+  }
+
+  return null;
+}
+
+module.exports = { fetchUsage, fetchPrepaid, autoExtract, sanitizeCookie, parsePrepaidCredits, coerceDollars };

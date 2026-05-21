@@ -40,6 +40,8 @@ let apiConfig = null; // { orgId, cookie, platformOrgId, platformCookie }
 let latest = null; // ApiUsage
 let lastError = null;
 let pollTimer = null;
+let prepaid = null; // { dollars, fetched_at } | null
+let prepaidError = null; // string | null
 
 // 401/403/404 첫 발생 시 1회만 설정창을 띄우는 latch. 다음 성공 시 풀려서
 // 재만료 사이클에 다시 한 번만 동작. 없으면 폴러가 30초마다 설정창을 다시
@@ -166,10 +168,30 @@ function buildSnapshot() {
     now: new Date().toISOString(),
     api: latest,
     api_error: lastError,
-    prepaid: null,
-    prepaid_error: null,
+    prepaid: prepaid,
+    prepaid_error: prepaidError,
     active_sessions: [],
   };
+}
+
+// platformOrgId 가 설정돼 있을 때만 prepaid 호출. usage 와 분리된 cycle 이라
+// platform cookie 가 따로 있으면 그걸 쓰고, 아니면 claude.ai cookie 재사용
+// (두 도메인이 같은 sessionKey 를 공유하는 케이스 대응).
+async function pollPrepaid() {
+  if (!apiConfig || !apiConfig.platformOrgId) {
+    prepaid = null;
+    prepaidError = null;
+    return;
+  }
+  const ck = apiConfig.platformCookie || apiConfig.cookie;
+  try {
+    const dollars = await claudeApi.fetchPrepaid(apiConfig.platformOrgId, ck);
+    prepaid = { dollars, fetched_at: new Date().toISOString() };
+    prepaidError = null;
+  } catch (e) {
+    prepaid = null;
+    prepaidError = e && e.message ? e.message : String(e);
+  }
 }
 
 async function pollOnce() {
@@ -188,6 +210,7 @@ async function pollOnce() {
       openSettings();
     }
   }
+  await pollPrepaid();
   broadcast("usage-update", buildSnapshot());
 }
 
@@ -271,12 +294,28 @@ async function handleCommand(cmd, a) {
         apiConfig = null;
         latest = null;
         lastError = null;
+        prepaid = null;
+        prepaidError = null;
       }
       return null;
     }
     case "test_api_config": {
       const u = await claudeApi.fetchUsage(a.orgId, a.cookie); // 실패 시 throw
-      return { ...u, prepaid_dollars: null, prepaid_error: null };
+      // platformOrgId 가 주어지면 prepaid 도 같이 시도 — 한 줄에 "usage X% ·
+      // prepaid $.." 또는 "prepaid err: .." 로 wizard 에 표시되게.
+      let prepaid_dollars = null;
+      let prepaid_error = null;
+      if (a.platformOrgId && String(a.platformOrgId).trim()) {
+        try {
+          prepaid_dollars = await claudeApi.fetchPrepaid(
+            String(a.platformOrgId).trim(),
+            String(a.platformCookie || a.cookie || "").trim(),
+          );
+        } catch (e) {
+          prepaid_error = e && e.message ? e.message : String(e);
+        }
+      }
+      return { ...u, prepaid_dollars, prepaid_error };
     }
     case "refresh_usage":
       await pollOnce();
