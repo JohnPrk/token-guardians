@@ -860,6 +860,29 @@ function Pet({
   const seenLastReqRef = useRef<string | null | "init">("init");
   const [refreshing, setRefreshing] = useState(false);
 
+  // 펫 윈도우 드래그: main 프로세스가 OS 커서(screen.getCursorScreenPoint) 를
+  // 폴링해서 직접 setPosition. renderer 는 pointerdown 에 start_pet_drag,
+  // pointerup 에 end_pet_drag 만 호출 — PointerEvent.screenX/Y 의 윈도우-이동
+  // 중 desync 회피 + 다중 디스플레이 workArea 합집합 clamp 는 main 이 담당.
+  const draggingRef = useRef(false);
+  const onPetPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    // resize handle 은 별도 핸들러 — drag 신호 보내지 않음
+    if (target.closest(".resize-handle")) return;
+    draggingRef.current = true;
+    target.setPointerCapture?.(e.pointerId);
+    invoke("start_pet_drag").catch(() => {});
+  };
+  const onPetPointerMove = (_e: React.PointerEvent<HTMLDivElement>) => {
+    // no-op — main 이 OS 커서 폴링으로 직접 윈도우 이동.
+  };
+  const onPetPointerUp = () => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    invoke("end_pet_drag").catch(() => {});
+  };
+
   useEffect(() => {
     invoke<UsageSnapshot>("get_usage_snapshot").then(setSnap).catch(() => {});
     const unlistenP = listen<UsageSnapshot>("usage-update", (e) =>
@@ -1116,7 +1139,13 @@ function Pet({
       : {};
 
   return (
-    <div className="pet-root">
+    <div
+      className="pet-root"
+      onPointerDown={onPetPointerDown}
+      onPointerMove={onPetPointerMove}
+      onPointerUp={onPetPointerUp}
+      onPointerCancel={onPetPointerUp}
+    >
       <div className="pet-content" ref={petContentRef} style={outerStyle}>
         <div
           className="pet-content-inner"

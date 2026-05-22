@@ -4,7 +4,7 @@
 //   - 시스템 트레이 + 메뉴
 //   - claude.ai usage 30초 폴링 → usage-update 브로드캐스트
 //   - 프론트엔드가 호출하는 IPC 커맨드 + 창 간 이벤트 중계
-const { app, BrowserWindow, Tray, Menu, ipcMain, shell, nativeImage } = require("electron");
+const { app, BrowserWindow, Tray, Menu, ipcMain, shell, nativeImage, screen } = require("electron");
 const path = require("path");
 const { pathToFileURL } = require("url");
 const claudeApi = require("./claudeApi.cjs");
@@ -18,6 +18,7 @@ const {
   formatUpdateCheckLabel,
   formatHeaderLabel,
   pickTrayTierForState,
+  clampPetPosition,
 } = require("./helpers.cjs");
 
 app.setName("token-panda");
@@ -105,10 +106,41 @@ function createPetWindow() {
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: false,
+    // macOS Sequoia(15.x) 의 Window Tiling 은 focusable 윈도우를 화면 끝으로
+    // 가져갈 때 잿빛 "tile hint zone" 미리보기를 그리고 윈도우를 reposition
+    // 한다. 펫은 사용자 키보드 포커스 안 가져오는 보조 윈도우라 focusable:false
+    // 로 OS 타일링 대상에서 제외 — clawd-on-desk 와 동일한 패턴. 텍스트 입력은
+    // 별도 settings/onboarding BrowserWindow 가 담당해서 영향 없음.
+    focusable: false,
     fullscreenable: false,
+    // movable:false 로 native drag(-webkit-app-region) 을 끄고 main 이 OS 커서를
+    // 폴링해서 setPosition 으로 직접 옮긴다(아래 startPetDrag). native drag 의
+    // setFrame: 호출이 macOS 윈도우 관리와 충돌하기도 하고, PointerEvent.screenX/Y
+    // 는 윈도우 이동 중 delta 가 어긋날 수 있어 screen.getCursorScreenPoint 가
+    // always-authoritative.
+    movable: false,
+    // enableLargerThanScreen:true 가 빠지면 macOS AppKit 의 constrainFrameRect 가
+    // setBounds 마다 윈도우를 NSScreen.visibleFrame 안으로 강제로 끌어들여서
+    // 좌측·상단·음수 x 보조 모니터 영역으로 진입이 막힌다 (= "끝으로 가다 튕김").
+    // 끄면 우리가 직접 bounds 를 통제해야 하므로 helpers.cjs:clampPetPosition 으로
+    // 모든 디스플레이 workArea 합집합 안에 클램프 (drag/move 양쪽에서 호출).
+    enableLargerThanScreen: true,
+    type: process.platform === "darwin" ? "panel" : undefined,
+    // NSPanel + transparent 의 rounded corner mask 가 partial-clip 시 unfilled
+    // 영역을 잿빛으로 노출하는 회귀 회피. NSWindow.roundedCorners 기본 true 라
+    // 명시적으로 끔. clawd-on-desk 와 동일.
+    roundedCorners: false,
     icon: ICON,
     webPreferences: webPrefs("main"),
   });
+  // setFocusable(false) 는 BrowserWindow 옵션 focusable:false 와 동등한 macOS
+  // NSWindow.canBecomeKey=NO 효과를 한 번 더 보장. Electron 구현체에 따라 옵션
+  // 만으로 안 박히는 케이스가 있어 안전망으로 호출 (clawd 패턴).
+  petWin.setFocusable(false);
+  // alwaysOnTop level "screen-saver" 복원. 1단계 시도(level 낮춤)는 위쪽 진입 자체를
+  // 막아 회귀 — 본 원인이 level 이 아닌 collectionBehavior STATIONARY 비트였음
+  // (spaces.cjs SET_MASK 에서 제거). level 은 옛 값으로 복원해 다른 앱 위 항상 표시
+  // 효과 보존.
   petWin.setAlwaysOnTop(true, "screen-saver");
   // 모든 Space + 스와이프 전환에도 화면 고정(Stationary) 으로 — 메뉴바처럼 데스크탑을
   // 넘겨도 펫의 x,y 가 안 밀리는 "한 겹 위 레이어" 느낌. Electron 내장
@@ -121,6 +153,7 @@ function createPetWindow() {
   petWin.once("ready-to-show", () => spaces.pinPetToAllSpaces(petWin));
   petWin.once("show", () => spaces.pinPetToAllSpaces(petWin));
   setTimeout(() => spaces.pinPetToAllSpaces(petWin), 800);
+
   petWin.loadURL(pageUrl("index.html"));
   petWin.on("closed", () => {
     petWin = null;
@@ -182,6 +215,53 @@ function broadcast(event, payload) {
   for (const w of BrowserWindow.getAllWindows()) {
     if (!w.isDestroyed()) w.webContents.send("tp:event", { event, payload });
   }
+}
+
+// 펫 윈도우 드래그 — main 이 OS 커서(screen.getCursorScreenPoint)를 ~60fps 로
+// 폴링해서 setPosition. 종전 PointerEvent.screenX/Y 기반 renderer 드래그를
+// 대체. 이유:
+//   1) PointerEvent.screenX/Y 는 같은 프레임에 윈도우가 setPosition 으로
+//      이동하면 다음 이벤트의 좌표가 새 윈도우 기준으로 다시 계산돼 delta 가
+//      어긋난다. OS 커서 좌표는 윈도우 이동과 무관하므로 항상 정확.
+//   2) clampPetPosition 으로 매 tick 마다 모든 디스플레이 workArea 합집합
+//      안에 가둘 수 있음 — enableLargerThanScreen:true 로 AppKit constrain
+//      을 끈 대신 우리가 직접 통제.
+// renderer 는 pointerdown 에 start_pet_drag, pointerup 에 end_pet_drag 만 호출.
+const PET_DRAG_INTERVAL_MS = 16;
+let petDragInterval = null;
+let petDragStart = null;
+
+function startPetDrag() {
+  if (!petWin || petDragInterval) return;
+  const c = screen.getCursorScreenPoint();
+  const [wx, wy] = petWin.getPosition();
+  petDragStart = { cursorX: c.x, cursorY: c.y, winX: wx, winY: wy };
+  petDragInterval = setInterval(() => {
+    if (!petWin || petWin.isDestroyed() || !petDragStart) {
+      endPetDrag();
+      return;
+    }
+    const cur = screen.getCursorScreenPoint();
+    const b = petWin.getBounds();
+    const rawX = petDragStart.winX + (cur.x - petDragStart.cursorX);
+    const rawY = petDragStart.winY + (cur.y - petDragStart.cursorY);
+    const { x, y } = clampPetPosition(
+      rawX,
+      rawY,
+      b.width,
+      b.height,
+      screen.getAllDisplays(),
+    );
+    petWin.setPosition(x, y, false);
+  }, PET_DRAG_INTERVAL_MS);
+}
+
+function endPetDrag() {
+  if (petDragInterval) {
+    clearInterval(petDragInterval);
+    petDragInterval = null;
+  }
+  petDragStart = null;
 }
 
 // usage.snapshot() 한 번 굴려 캐시 갱신. 동기 I/O 라 빠르고, 실패해도 이전
@@ -516,6 +596,35 @@ async function handleCommand(cmd, a) {
     case "resize_pet_window":
       if (petWin && a.width && a.height) {
         petWin.setSize(Math.round(a.width), Math.round(a.height));
+      }
+      return null;
+    case "start_pet_drag":
+      // OS 커서 polling 기반 main 주도 드래그 시작 — drag 중엔 renderer 가
+      // pointer 이벤트를 안 흘려도 OK (screen.getCursorScreenPoint 가 진실).
+      startPetDrag();
+      return null;
+    case "end_pet_drag":
+      endPetDrag();
+      return null;
+    case "move_pet_window":
+      // 외부 좌표 지정 이동 경로 — 드래그가 아닌 키보드/복구/테스트 호출용.
+      // clampPetPosition 으로 화면 밖 영구 분실을 방지.
+      if (petWin && typeof a.x === "number" && typeof a.y === "number") {
+        const b = petWin.getBounds();
+        const { x, y } = clampPetPosition(
+          a.x,
+          a.y,
+          b.width,
+          b.height,
+          screen.getAllDisplays(),
+        );
+        petWin.setPosition(x, y, false);
+      }
+      return null;
+    case "get_pet_position":
+      if (petWin) {
+        const [x, y] = petWin.getPosition();
+        return { x, y };
       }
       return null;
     case "toggle_main_window":

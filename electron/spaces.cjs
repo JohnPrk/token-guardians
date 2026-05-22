@@ -7,12 +7,14 @@
 //      (= 유저의 좌우 Mission Control 스와이프 Space 집합 밖, 그 위)으로 올린다.
 //   2) 그 Space 를 항상 표시(SLSShowSpaces)하고, 펫 윈도우를 그 Space 로 이동
 //      (SLSSpaceAddWindowsAndRemoveFromSpaces, 기존 Space 멤버십 7 비트 제거).
-//   3) 보조로 NSWindow.collectionBehavior(CanJoinAllSpaces|Stationary|...) + level 1500.
+//   3) 보조로 NSWindow.collectionBehavior(Stationary|...) + level 1500.
 //
 // collectionBehavior 의 Stationary 비트만으로는 스와이프 슬라이드가 안 막힌다(실측).
-// 진짜로 막는 건 (1)(2) 의 private elevated Space. NSPanel 클래스 스왑(옛 코드의
-// convert_to_panel_once)은 클릭/포커스용이라 펫 윈도우 전용인 우리 케이스엔 불필요
-// (설정창 텍스트 입력 회귀를 피하려고 일부러 안 함).
+// 진짜로 막는 건 (1)(2) 의 private elevated Space. 옛 Tauri 빌드는 NSPanel 클래스
+// 스왑(convert_to_panel_once)으로 Stage Manager 관리에서도 제외됐지만, koffi 로 같은
+// 스왑을 하면 Electron 의 NSWindow 서브클래스와 충돌해 AppKit 이 크래시한다(실측).
+// 그래서 Stage Manager 의 화면-밖 재배치(좌측 드래그 튕김)는 NSPanel 대신 main.cjs
+// move_pet_window 의 bounds clamp 로 막는다.
 //
 // 네이티브 컴파일 addon 대신 koffi(prebuilt, Electron 호환) FFI 로 objc + SkyLight
 // 런타임을 직접 호출 → CI 에 node-gyp/electron-rebuild 단계 불필요.
@@ -43,11 +45,22 @@ const CLEAR_MASK =
   CB.CAN_JOIN_ALL_SPACES | CB.MOVE_TO_ACTIVE_SPACE | CB.MANAGED | CB.TRANSIENT |
   CB.PARTICIPATES_IN_CYCLE | CB.FULLSCREEN_PRIMARY | CB.FULLSCREEN_NONE |
   CB.FULLSCREEN_ALLOWS_TILING | CB.PRIMARY | CB.AUXILIARY | CB.CAN_JOIN_ALL_APPS;
+// 옛 Tauri 빌드(SET_MASK) 와 동일. STATIONARY 는 스와이프 고정용. 좌측 드래그 튕김의
+// 본 원인은 collectionBehavior 가 아니라 macOS Stage Manager 의 화면-밖 윈도우
+// 재배치였고, main.cjs move_pet_window 의 bounds clamp 로 해소(거기 주석 참고).
 const SET_MASK =
   CB.STATIONARY | CB.FULLSCREEN_AUXILIARY | CB.IGNORES_CYCLE | CB.FULLSCREEN_DISALLOWS_TILING;
 
-// CGAssistiveTechHighWindowLevel — NSStatusWindowLevel(25) 보다 훨씬 위
-const ASSISTIVE_LEVEL = 1500;
+// 펫 윈도우 level — main.cjs 의 setAlwaysOnTop(true, "screen-saver") 가 이미
+// Electron 내부적으로 NSScreenSaverWindowLevel(=1000) 로 매핑. 옛 코드에서
+// 추가로 CGAssistiveTechHighWindowLevel(1500) 까지 올렸던 이유는 "위쪽 진입
+// 차단 회피"였으나, 그 의도는 이제 enableLargerThanScreen:true + helpers.cjs
+// clampPetPosition 이 직접 담당해서 중복. setLevel:1500 은 macOS WindowServer
+// 가 high-level 윈도우를 "always-visible system UI" 로 간주해 partial-exit 시
+// shadow/backing 잔재(잿빛 사각형) + 강제 reposition(중간으로 튕김) 의 두
+// 부수효과를 일으키는 가설이라 폐기. clawd-on-desk 와 동일 level(1000) 로 통일.
+// SkyLight private-space pinning + collectionBehavior STATIONARY 는 그대로 유지
+// — 모든 Space 고정(v1.95)은 그 두 메커니즘이 담당하고 level 과 무관.
 const ANIM_NONE = 2; // NSWindowAnimationBehaviorNone
 
 let loaded = false;
@@ -123,13 +136,14 @@ function pinPetToAllSpaces(win) {
     const w = nsWindowOf(win);
     if (!w) return false;
 
-    // collectionBehavior: 옛 코드와 동일하게 clear 후 set
+    // collectionBehavior: 옛 코드와 동일하게 clear 후 set.
     const current = Number(koffi.address(msgSend(w, selReg("collectionBehavior"), 0)));
     const next = (current & ~CLEAR_MASK) | SET_MASK;
     if (next !== current) msgSend(w, selReg("setCollectionBehavior:"), next >>> 0);
     msgSend(w, selReg("setCanHide:"), 0);
     msgSend(w, selReg("setHidesOnDeactivate:"), 0);
-    msgSend(w, selReg("setLevel:"), ASSISTIVE_LEVEL);
+    // setLevel: 호출 폐기 — main.cjs 의 setAlwaysOnTop("screen-saver") 가 박은
+    // NSScreenSaverWindowLevel(1000) 그대로 둠. (위 주석 참고)
     msgSend(w, selReg("setAnimationBehavior:"), ANIM_NONE);
 
     // private Space 로 윈도우 이동 (기존 Space 멤버십 7 비트 제거) + 재표시

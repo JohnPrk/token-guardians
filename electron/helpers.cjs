@@ -66,10 +66,65 @@ function pickTrayTierForState(platform, trayMode, remaining) {
   return null;
 }
 
+// 펫 윈도우가 화면 끝(좌·상) 으로 못 가고 튕기던 회귀의 표준 해결책. 본 원인 두 개:
+//
+//   1) macOS AppKit 의 NSWindow.constrainFrameRect(_:to:) 가 setBounds 마다
+//      윈도우를 NSScreen.visibleFrame 안으로 자동으로 끌어들인다(공식 문서:
+//      "if necessary, this method changes the origin so that the window
+//      appears entirely within the visible portion of screen"). 이 강제 클램프는
+//      BrowserWindow 옵션 enableLargerThanScreen:true 로만 끌 수 있다 (Electron
+//      docs: "Enable the window to be resized larger than screen ... Default
+//      false"). false 일 때 AppKit 가 좌/상 진입을 막아 듀얼 모니터의 음수 x
+//      영역으로도 못 감.
+//
+//   2) AppKit clamp 를 끄면 윈도우가 영영 화면 밖으로 나갈 수 있어 우리가 직접
+//      bounds 를 통제해야 함 — 이 함수가 그 역할. 모든 디스플레이 workArea
+//      (메뉴바·Dock 제외) 의 union bounding box 안에 윈도우가 최소
+//      MIN_VISIBLE_PX 만큼 보이도록 좌표를 강제. 음수 x 보조 모니터(메인이
+//      오른쪽에 있는 듀얼 셋업) 도 자연히 union 으로 처리.
+//
+// 호출자: main.cjs 의 start_pet_drag interval 폴링 + 외부 move_pet_window IPC.
+// displays 인자는 screen.getAllDisplays() 결과 (테스트에서는 가짜 객체 주입).
+const MIN_VISIBLE_PX = 32;
+
+function clampPetPosition(x, y, w, h, displays) {
+  if (!Array.isArray(displays) || displays.length === 0) {
+    return { x: Math.round(x), y: Math.round(y) };
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const d of displays) {
+    const wa = d && d.workArea ? d.workArea : null;
+    if (!wa) continue;
+    if (wa.x < minX) minX = wa.x;
+    if (wa.y < minY) minY = wa.y;
+    if (wa.x + wa.width > maxX) maxX = wa.x + wa.width;
+    if (wa.y + wa.height > maxY) maxY = wa.y + wa.height;
+  }
+  if (!Number.isFinite(minX)) {
+    return { x: Math.round(x), y: Math.round(y) };
+  }
+  // 윈도우의 우측이 minX + MIN_VISIBLE_PX 이상이어야 함 → x >= minX + MIN_VISIBLE_PX - w
+  // 윈도우의 좌측이 maxX - MIN_VISIBLE_PX 이하 → x <= maxX - MIN_VISIBLE_PX
+  // 상/하단도 같은 방식.
+  const xMin = minX + MIN_VISIBLE_PX - w;
+  const xMax = maxX - MIN_VISIBLE_PX;
+  const yMin = minY + MIN_VISIBLE_PX - h;
+  const yMax = maxY - MIN_VISIBLE_PX;
+  return {
+    x: Math.round(Math.min(xMax, Math.max(xMin, x))),
+    y: Math.round(Math.min(yMax, Math.max(yMin, y))),
+  };
+}
+
 module.exports = {
   isAuthFailure,
   formatUpdateCheckLabel,
   formatHeaderLabel,
   bambooTierForRemaining,
   pickTrayTierForState,
+  clampPetPosition,
+  MIN_VISIBLE_PX,
 };

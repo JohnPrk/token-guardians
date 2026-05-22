@@ -1,24 +1,8 @@
 /* 펫 창(Electron, frameless+transparent) 전용. main.tsx 에서만 import.
-   Tauri 의 data-tauri-drag-region 을 Electron 의 -webkit-app-region 으로 매핑해
-   펫을 드래그로 옮길 수 있게 한다. 버튼/입력/리사이즈 그립은 no-drag 로 유지해
-   클릭·드래그 상호작용을 살린다. */
+   v2.11: native drag(-webkit-app-region: drag) 대신 movable:false + React onPointerDown
+   수동 drag → move_pet_window IPC 로 전환. native drag 의 setFrame: 호출이 macOS 윈도우
+   관리와 충돌해서다. -webkit-app-region 줄은 모두 폐기. */
 html,
 body {
   background: transparent !important;
-}
-
-[data-tauri-drag-region] {
-  -webkit-app-region: drag;
-}
-
-button,
-a,
-input,
-textarea,
-select,
-[role="button"],
-.resize-handle,
-.resize-icon,
-[data-no-drag] {
-  -webkit-app-region: no-drag;
 }

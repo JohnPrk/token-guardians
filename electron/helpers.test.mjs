@@ -16,6 +16,8 @@ const {
   formatHeaderLabel,
   bambooTierForRemaining,
   pickTrayTierForState,
+  clampPetPosition,
+  MIN_VISIBLE_PX,
 } = helpers;
 
 describe("isAuthFailure", () => {
@@ -141,5 +143,81 @@ describe("pickTrayTierForState", () => {
     expect(pickTrayTierForState("win32", "fivehour", 1)).toBe("100");
     expect(pickTrayTierForState("win32", "both", 0.3)).toBe("100");
     expect(pickTrayTierForState("win32", "all", 0.1)).toBe("100");
+  });
+});
+
+describe("clampPetPosition", () => {
+  // 단일 디스플레이 (0,0)~(1440,900). MacBook 메뉴바/Dock 제외 영역 가정.
+  const primary = { workArea: { x: 0, y: 25, width: 1440, height: 875 } };
+  // 듀얼 셋업: 메인 모니터가 오른쪽, 보조가 왼쪽으로 확장된 환경 (음수 x).
+  const leftSecondary = { workArea: { x: -1920, y: 0, width: 1920, height: 1080 } };
+  const w = 220;
+  const h = 460;
+
+  it("returns input rounded when displays is empty", () => {
+    expect(clampPetPosition(123.7, -45.2, w, h, [])).toEqual({ x: 124, y: -45 });
+  });
+
+  it("returns input rounded when displays argument is missing/invalid", () => {
+    expect(clampPetPosition(50, 50, w, h, null)).toEqual({ x: 50, y: 50 });
+    expect(clampPetPosition(50, 50, w, h, [{}])).toEqual({ x: 50, y: 50 });
+  });
+
+  it("keeps in-bounds position unchanged (single display)", () => {
+    expect(clampPetPosition(500, 200, w, h, [primary])).toEqual({ x: 500, y: 200 });
+  });
+
+  it("clamps to left edge with MIN_VISIBLE_PX of window remaining onscreen", () => {
+    // 윈도우 좌측이 -w 보다 더 왼쪽이면 우측 끝이 화면 밖 → 우측 끝 = MIN_VISIBLE 만큼 보임
+    const r = clampPetPosition(-9999, 200, w, h, [primary]);
+    // xMin = 0 + 32 - 220 = -188
+    expect(r.x).toBe(MIN_VISIBLE_PX - w); // -188
+    expect(r.y).toBe(200);
+  });
+
+  it("clamps to right edge with MIN_VISIBLE_PX of window remaining onscreen", () => {
+    const r = clampPetPosition(9999, 200, w, h, [primary]);
+    // xMax = 1440 - 32 = 1408
+    expect(r.x).toBe(1440 - MIN_VISIBLE_PX);
+    expect(r.y).toBe(200);
+  });
+
+  it("clamps to top edge — window bottom must stay MIN_VISIBLE below workArea top", () => {
+    // 위로 한참 끌어올려도 윈도우의 아래 32px 은 화면 안에 남아야 함
+    const r = clampPetPosition(500, -9999, w, h, [primary]);
+    // yMin = 25 + 32 - 460 = -403
+    expect(r.x).toBe(500);
+    expect(r.y).toBe(primary.workArea.y + MIN_VISIBLE_PX - h);
+  });
+
+  it("clamps to bottom edge", () => {
+    const r = clampPetPosition(500, 9999, w, h, [primary]);
+    // yMax = 25 + 875 - 32 = 868
+    expect(r.x).toBe(500);
+    expect(r.y).toBe(primary.workArea.y + primary.workArea.height - MIN_VISIBLE_PX);
+  });
+
+  it("supports dual display with secondary at negative x (left-extended setup)", () => {
+    // 보조 모니터가 (-1920, 0) 부터 1920×1080. 메인은 (0, 25)~(1440, 900).
+    // 펫을 -800 으로 끌고 가도 정상 — union 의 minX 가 -1920 이라 OK.
+    const r = clampPetPosition(-800, 400, w, h, [primary, leftSecondary]);
+    expect(r).toEqual({ x: -800, y: 400 });
+  });
+
+  it("clamps to union left when going past secondary display's left edge", () => {
+    const r = clampPetPosition(-9999, 400, w, h, [primary, leftSecondary]);
+    // union minX = -1920, xMin = -1920 + 32 - 220 = -2108
+    expect(r.x).toBe(-1920 + MIN_VISIBLE_PX - w);
+    expect(r.y).toBe(400);
+  });
+
+  it("clamps to union top when secondary display extends higher than primary", () => {
+    // leftSecondary 의 y=0 가 primary 의 y=25 보다 위 → union minY = 0
+    const r = clampPetPosition(500, -9999, w, h, [primary, leftSecondary]);
+    expect(r.y).toBe(0 + MIN_VISIBLE_PX - h);
+  });
+
+  it("rounds fractional coordinates", () => {
+    expect(clampPetPosition(100.6, 200.4, w, h, [primary])).toEqual({ x: 101, y: 200 });
   });
 });
