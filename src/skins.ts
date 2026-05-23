@@ -1,42 +1,24 @@
 import type { PetState } from "./types";
-import pandaFull from "./skins/panda/full.png";
-import pandaHigh from "./skins/panda/high.png";
-import pandaGood from "./skins/panda/good.png";
-import pandaMid from "./skins/panda/mid.png";
-import pandaLow from "./skins/panda/low.png";
-import pandaTired from "./skins/panda/tired.png";
-import pandaSleepy from "./skins/panda/sleepy.png";
-import pandaDead from "./skins/panda/dead.png";
 
-// disconnected 상태(API 끊김)에서는 캐릭터 본체를 dead.png로 바꾸고,
-// 그 앞에 "연결 실패" 나무 표지판 오버레이를 캐릭터 앞에 띄운다.
-import pandaDisconnected from "./skins/panda/dead.png";
-import pandaDisconnectedSign from "./skins/panda/disconnected_sign.png";
+// 액세서리 PNG — 모든 스킨이 공유. 캐릭터 본체와 분리되어 idle 액션
+// (scratch 의 대나무, run 의 apple/dumbbell 등) 과 disconnected overlay
+// (연결 실패 표지판) 에서 쓴다.
+import bambooPng from "./skins/_shared/bamboo.png";
+import applePng from "./skins/_shared/apple.png";
+import dumbbellPng from "./skins/_shared/dumbbell.png";
+import disconnectedSignPng from "./skins/_shared/disconnected_sign.png";
 
-import pandaBamboo from "./skins/panda/bamboo.png";
-import pandaApple from "./skins/panda/apple.png";
-import pandaDumbbell from "./skins/panda/dumbbell.png";
-
-// panda-v2 — 7 감정 PNG 를 9-state PetState 에 매핑.
+// panda-v3 — Gemini Nano Banana 2 8 포즈 캐릭터 셋. centroid 좌우 정렬 +
+// 발끝 동일 Y. 9-state 매핑은 v2.13 에 정착한 안:
 //   full   (90-100%) → idle      (활기)
 //   high   (77-90%)  → cheerful  (양호)
 //   good   (63-77%)  → cheerful  (양호 유지, 같은 이미지)
 //   mid    (49-63%)  → tired     (피곤한 기색)
 //   low    (33-49%)  → weary     (지친)
-//   tired  (15-33%)  → sleepy    (졸린, 눈 반감 + Zzz)
+//   tired  (15-33%)  → sleepy    (졸린, 눈 반감)
 //   sleepy (0-15%)   → sleep     (완전히 누워 자는)
 //   dead             → dead      (X 눈)
-//   disconnected     → dead      (panda 와 동일, ACCESSORIES.disconnectedSign 오버레이)
-import pandaV2Idle from "./skins/panda-v2/idle.png";
-import pandaV2Cheerful from "./skins/panda-v2/cheerful.png";
-import pandaV2Tired from "./skins/panda-v2/tired.png";
-import pandaV2Weary from "./skins/panda-v2/weary.png";
-import pandaV2Sleepy from "./skins/panda-v2/sleepy.png";
-import pandaV2Sleep from "./skins/panda-v2/sleep.png";
-import pandaV2Dead from "./skins/panda-v2/dead.png";
-
-// panda-v3 — v2 와 동일한 매핑 규칙. 전신이 다 보이는 새 캐릭터 셋,
-// 시각적 무게중심(centroid) 기준으로 좌우 정렬 + 발끝 동일 Y 정렬.
+//   disconnected     → dead      (ACCESSORIES.disconnectedSign 오버레이)
 import pandaV3Idle from "./skins/panda-v3/idle.png";
 import pandaV3Cheerful from "./skins/panda-v3/cheerful.png";
 import pandaV3Tired from "./skins/panda-v3/tired.png";
@@ -44,6 +26,17 @@ import pandaV3Weary from "./skins/panda-v3/weary.png";
 import pandaV3Sleepy from "./skins/panda-v3/sleepy.png";
 import pandaV3Sleep from "./skins/panda-v3/sleep.png";
 import pandaV3Dead from "./skins/panda-v3/dead.png";
+
+// cat-v1 — 회색+흰색 고양이, 오드아이(파랑/노랑). panda-v3 시트를
+// style reference 로 같이 줘서 동일 톤(derpy / 큰 반짝 눈 / 통통한 비율)
+// 으로 생성. 같은 9-state 매핑.
+import catV1Idle from "./skins/cat-v1/idle.png";
+import catV1Cheerful from "./skins/cat-v1/cheerful.png";
+import catV1Tired from "./skins/cat-v1/tired.png";
+import catV1Weary from "./skins/cat-v1/weary.png";
+import catV1Sleepy from "./skins/cat-v1/sleepy.png";
+import catV1Sleep from "./skins/cat-v1/sleep.png";
+import catV1Dead from "./skins/cat-v1/dead.png";
 
 // Action names used by the idle micro-action loop in App.tsx.
 // A skin can optionally provide a .gif for any of these to express the
@@ -72,41 +65,6 @@ export type Skin = {
 
 export const SKINS: Skin[] = [
   {
-    id: "panda",
-    name: "Panda",
-    frames: {
-      full: pandaFull,
-      high: pandaHigh,
-      good: pandaGood,
-      mid: pandaMid,
-      low: pandaLow,
-      tired: pandaTired,
-      sleepy: pandaSleepy,
-      dead: pandaDead,
-      disconnected: pandaDisconnected,
-    },
-    // No motion GIFs yet — drop files into src/skins/panda/<action>.gif and
-    // wire them up here (e.g. `roll: pandaRollGif`) to enable per-action
-    // gif playback. Until then, CSS keyframes animate the static PNG.
-    actions: {},
-  },
-  {
-    id: "panda-v2",
-    name: "Panda v2",
-    frames: {
-      full: pandaV2Idle,
-      high: pandaV2Cheerful,
-      good: pandaV2Cheerful,
-      mid: pandaV2Tired,
-      low: pandaV2Weary,
-      tired: pandaV2Sleepy,
-      sleepy: pandaV2Sleep,
-      dead: pandaV2Dead,
-      disconnected: pandaV2Dead,
-    },
-    actions: {},
-  },
-  {
     id: "panda-v3",
     name: "Panda v3",
     frames: {
@@ -122,16 +80,35 @@ export const SKINS: Skin[] = [
     },
     actions: {},
   },
+  {
+    id: "cat-v1",
+    name: "Cat v1",
+    frames: {
+      full: catV1Idle,
+      high: catV1Cheerful,
+      good: catV1Cheerful,
+      mid: catV1Tired,
+      low: catV1Weary,
+      tired: catV1Sleepy,
+      sleepy: catV1Sleep,
+      dead: catV1Dead,
+      disconnected: catV1Dead,
+    },
+    actions: {},
+  },
 ];
 
 export const ACCESSORIES = {
-  bamboo: pandaBamboo,
-  apple: pandaApple,
-  dumbbell: pandaDumbbell,
-  disconnectedSign: pandaDisconnectedSign,
+  bamboo: bambooPng,
+  apple: applePng,
+  dumbbell: dumbbellPng,
+  disconnectedSign: disconnectedSignPng,
 };
 
-export const DEFAULT_SKIN_ID = "panda";
+// v2.15: 옛 panda(v1) 와 panda-v2 삭제. 새 default 는 panda-v3.
+// 기존 사용자의 store 에 "panda" 가 저장돼 있어도 findSkin 의 fallback
+// (SKINS[0]) 으로 자동 panda-v3 로 떨어진다.
+export const DEFAULT_SKIN_ID = "panda-v3";
 
 export function findSkin(id: string): Skin {
   return SKINS.find((s) => s.id === id) ?? SKINS[0];

@@ -1318,6 +1318,7 @@ function Pet({
 
       <div
         className="character"
+        data-skin={skin.id}
         data-state={d.petState}
         data-action={idleAction}
         data-flash={flash ?? ""}
