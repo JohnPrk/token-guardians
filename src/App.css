@@ -464,22 +464,15 @@
 }
 .character[data-state="mid"] {
   animation: bob 4s ease-in-out infinite, sway 8s ease-in-out infinite;
-  filter: saturate(0.85);
 }
 .character[data-state="low"] {
   animation: bob 5.5s ease-in-out infinite;
-  filter: saturate(0.7) brightness(0.97);
 }
 .character[data-state="tired"] {
   animation: bob 6.5s ease-in-out infinite;
-  filter: saturate(0.55) brightness(0.95);
 }
 .character[data-state="sleepy"] {
   animation: snore 3.8s ease-in-out infinite;
-  filter: saturate(0.45) brightness(0.92);
-}
-.character[data-state="dead"] {
-  filter: grayscale(0.8) brightness(0.8);
 }
 
 /* disconnected: API 끊김 상태. 캐릭터 본체는 dead.png(회색·기절)로 바꾸고
@@ -488,30 +481,6 @@
    미세하게 흔들려 정적이지 않게. */
 .character[data-state="disconnected"] {
   animation: none;
-  filter: none;
-}
-
-/* cat-v1 override: 회색+흰색 캐릭터라 기본 saturate 감소가 푸른 회색조로
-   강하게 보이는 경향. 에너지 시각 효과(채도 감소)는 살리되 강도를 절반 정도로
-   약화해서 푸른끼가 덜 느껴지게. brightness 도 함께 약하게. panda-v3 같은
-   검정/흰색 스킨은 이 override 대상이 아니라 기본 filter 그대로. */
-.character[data-skin="cat-v1"][data-state="mid"] {
-  filter: saturate(0.93);
-}
-.character[data-skin="cat-v1"][data-state="low"] {
-  filter: saturate(0.85) brightness(0.98);
-}
-.character[data-skin="cat-v1"][data-state="tired"] {
-  filter: saturate(0.78) brightness(0.97);
-}
-.character[data-skin="cat-v1"][data-state="sleepy"] {
-  filter: saturate(0.72) brightness(0.95);
-}
-.character[data-skin="cat-v1"][data-state="dead"] {
-  filter: grayscale(0.4) brightness(0.85);
-}
-.character[data-skin="cat-v1"][data-flash="miss"] {
-  filter: grayscale(0.3) brightness(0.94) saturate(0.85);
 }
 /* `.character img`(specificity 0,1,1)가 inset:0/width:100%/height:100%를
    강제하기 때문에, 사인 이미지를 같은 specificity로 매칭해서 모두
@@ -2189,5 +2158,190 @@
 
 .session-card--expired {
   opacity: 0.35;
+}
+
+/* ── 업데이트 일지 창 (changelog.html) ── 온보딩 창과 같은 톤. */
+.changelog-window {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at top left, rgba(74, 60, 130, 0.55), transparent 60%),
+    radial-gradient(ellipse at bottom right, rgba(60, 60, 75, 0.55), transparent 60%),
+    linear-gradient(160deg, #2f2940 0%, #25232c 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 24px;
+  overflow: auto;
+  color: #ececf1;
+  user-select: text;
+  -webkit-user-select: text;
+  font-family: inherit;
+}
+.changelog-card {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  flex: 1 1 auto;
+  background: #fff;
+  color: #1f1d28;
+  color-scheme: light;
+  border-radius: 14px;
+  border: 1px solid #d8d4ec;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  padding: 26px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.changelog-card,
+.changelog-card * {
+  min-width: 0;
+  max-width: 100%;
+}
+.changelog-header h1 {
+  margin: 0;
+  font-size: 18px;
+  color: #1f1d28;
+}
+.changelog-badge {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #efeaff;
+  border: 1px solid #d8d0f5;
+  color: #5b3fd6;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.changelog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.changelog-entry {
+  border-left: 3px solid #b9aef0;
+  padding-left: 14px;
+}
+/* 토글: 제목만 보이는 접힘 상태가 기본. summary 클릭으로 펼침. */
+.changelog-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  padding: 3px 0;
+  list-style: none;
+}
+.changelog-summary::-webkit-details-marker {
+  display: none;
+}
+.changelog-summary::before {
+  content: "▸";
+  color: #8a7fd0;
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+.changelog-details[open] > .changelog-summary::before {
+  content: "▾";
+}
+.changelog-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f1d28;
+  flex: 1 1 auto;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.changelog-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.changelog-version {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5b3fd6;
+}
+.changelog-date {
+  font-size: 11px;
+  color: #8a8597;
+}
+/* 마크다운 본문 */
+.changelog-body {
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #46424f;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.changelog-body > :first-child {
+  margin-top: 0;
+}
+.changelog-body > :last-child {
+  margin-bottom: 0;
+}
+.changelog-body p {
+  margin: 6px 0;
+}
+.changelog-body ul,
+.changelog-body ol {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+.changelog-body li {
+  margin: 3px 0;
+}
+.changelog-body a {
+  color: #5b3fd6;
+}
+.changelog-body code {
+  font-family: ui-monospace, monospace;
+  font-size: 11.5px;
+  background: #f1eefb;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.changelog-body img,
+.changelog-body video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+.changelog-empty {
+  font-size: 12.5px;
+  color: #8a8597;
+  text-align: center;
+  padding: 24px 0;
+}
+.changelog-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.changelog-close {
+  padding: 7px 18px;
+  border-radius: 8px;
+  border: 1px solid #c2bccf;
+  background: #5b3fd6;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.changelog-close:hover {
+  background: #4a31bf;
 }
 

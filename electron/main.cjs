@@ -44,8 +44,14 @@ let store;
 let petWin = null;
 let settingsWin = null;
 let onboardingWin = null;
+let changelogWin = null;
 let tray = null;
 let quitting = false;
+
+// 업데이트 일지 창에 넘길 컨텍스트. mode="whatsnew" 면 직전 본 버전(sinceVersion)
+// 이후 항목만, "full" 이면 전체. 렌더러가 get_changelog_context 로 읽고,
+// 창이 살아 있는 동안 다시 열리면 changelog-context 이벤트로 갱신받는다.
+let changelogContext = { mode: "full", sinceVersion: null };
 
 let trayMode = "fivehour";
 let trayAccounts = [];
@@ -209,6 +215,62 @@ function openOnboarding() {
   onboardingWin.on("closed", () => {
     onboardingWin = null;
   });
+}
+
+// 업데이트 일지 창. 팝업(mode="whatsnew")과 트레이 메뉴(mode="full")가 같은 창
+// 하나를 재사용한다. 이미 떠 있으면 컨텍스트만 갱신해 다시 렌더하도록 이벤트를 쏜다.
+function openChangelog(mode, sinceVersion) {
+  changelogContext = {
+    mode: mode === "whatsnew" ? "whatsnew" : "full",
+    sinceVersion: sinceVersion || null,
+  };
+  if (changelogWin && !changelogWin.isDestroyed()) {
+    changelogWin.show();
+    if (changelogWin.isMinimized()) changelogWin.restore();
+    changelogWin.focus();
+    broadcast("changelog-context", changelogContext);
+    return;
+  }
+  changelogWin = new BrowserWindow({
+    width: 560,
+    height: 640,
+    minWidth: 460,
+    minHeight: 420,
+    resizable: true,
+    center: true,
+    title: "토큰 판다 — 업데이트 일지",
+    icon: ICON,
+    autoHideMenuBar: true,
+    webPreferences: webPrefs("changelog"),
+  });
+  changelogWin.setMenuBarVisibility(false);
+  changelogWin.loadURL(pageUrl("changelog.html"));
+  changelogWin.on("closed", () => {
+    changelogWin = null;
+  });
+}
+
+// 부팅 시 "방금 업데이트됨" 팝업. config.json 의 changelogLastSeenVersion 과 현재
+// 버전을 비교해 새 버전이면 일지 창을 whatsnew 모드로 띄운다. 신규 설치(저장값 없음)
+// 는 팝업 없이 baseline 만 기록 — 첫 실행에 일지가 튀어나오지 않게.
+function maybeShowWhatsNew() {
+  let lastSeen = null;
+  try {
+    lastSeen = store.op("get", "config.json", "changelogLastSeenVersion") || null;
+  } catch {
+    lastSeen = null;
+  }
+  if (updater.shouldShowWhatsNew(lastSeen, APP_VERSION)) {
+    openChangelog("whatsnew", lastSeen);
+  }
+  if (lastSeen !== APP_VERSION) {
+    try {
+      store.op("set", "config.json", "changelogLastSeenVersion", APP_VERSION);
+      store.op("save", "config.json");
+    } catch (e) {
+      console.warn("[tp] changelog baseline save failed:", e);
+    }
+  }
 }
 
 function broadcast(event, payload) {
@@ -467,6 +529,7 @@ function rebuildTray() {
   template.push(
     { type: "separator" },
     { label: "설정...", click: () => openSettings() },
+    { label: "업데이트 일지", click: () => openChangelog("full", null) },
     { label: "종료", click: () => { quitting = true; app.quit(); } },
   );
 
@@ -559,6 +622,11 @@ async function handleCommand(cmd, a) {
     case "open_onboarding_window":
       openOnboarding();
       return null;
+    case "open_changelog_window":
+      openChangelog("full", null);
+      return null;
+    case "get_changelog_context":
+      return changelogContext;
     case "open_claude_usage_in_browser":
       await shell.openExternal("https://claude.ai/settings/usage");
       return null;
@@ -697,6 +765,14 @@ app.whenReady().then(() => {
   createPetWindow();
   startPoller();
   startUpdateChecker();
+  // 펫이 먼저 뜬 뒤 잠깐 있다가 "방금 업데이트됨" 일지 팝업 (있을 때만).
+  setTimeout(() => {
+    try {
+      maybeShowWhatsNew();
+    } catch (e) {
+      console.warn("[tp] whats-new popup failed:", e);
+    }
+  }, 1500);
   console.log(
     `[tp] ready v${APP_VERSION} | mode=${DEV_URL ? "dev(" + DEV_URL + ")" : "prod(dist)"} | userData=${app.getPath("userData")}`,
   );

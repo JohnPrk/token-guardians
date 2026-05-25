@@ -39,6 +39,14 @@ function isNewer(current, latest) {
   return false;
 }
 
+// 부팅 시 "방금 업데이트됨" 팝업을 띄울지. lastSeen(마지막으로 일지를 보여준 버전)
+// 이 없으면(신규 설치) false — 첫 실행에 팝업을 안 띄운다. current 가 lastSeen 보다
+// 새 버전이면 true. main.cjs 부팅 로직이 호출.
+function shouldShowWhatsNew(lastSeen, current) {
+  if (!lastSeen) return false;
+  return isNewer(lastSeen, current);
+}
+
 // GitHub API 응답 → UpdateInfo. current 보다 새 버전이면 latest_version + html_url
 // (사용자가 클릭할 release 페이지). 동일/오래된 버전이면 null.
 function parseReleaseResponse(json, currentVersion) {
@@ -120,6 +128,7 @@ module.exports = {
   fetchLatestRelease,
   parseReleaseTag,
   isNewer,
+  shouldShowWhatsNew,
   parseReleaseResponse,
   parseReleaseAssets,
   RELEASES_URL,

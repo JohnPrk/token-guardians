@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, type Plugin } from 'vite'
 import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react'
@@ -30,6 +31,12 @@ export default defineConfig({
       { find: '@tauri-apps/plugin-notification', replacement: resolve(__dirname, 'src/tauri-shim/plugin-notification.ts') },
     ],
   },
+  // vitest 탐색 범위: 우리 소스/일렉트론 테스트만. node_modules 는 .nosync 로
+  // 이름이 바뀌어 있어(iCloud 동기화 제외) 기본 제외 패턴(**/node_modules/**)에
+  // 안 걸리므로, include 로 우리 테스트만 명시해서 의존성 내부 테스트 스캔을 막는다.
+  test: {
+    include: ['src/**/*.test.{ts,tsx}', 'electron/**/*.test.mjs'],
+  },
   // file:// 로드(프로덕션) 시 절대경로(/assets/..)는 안 풀리므로 상대경로로.
   base: './',
   // 멀티페이지: 각 창이 자기 전용 HTML 진입점을 로드한다. 런타임 라벨 추측
@@ -40,6 +47,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         settings: resolve(__dirname, 'settings.html'),
         onboarding: resolve(__dirname, 'onboarding.html'),
+        changelog: resolve(__dirname, 'changelog.html'),
         preview: resolve(__dirname, 'preview.html'),
         'skin-grid': resolve(__dirname, 'skin-grid.html'),
       },

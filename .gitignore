@@ -8,8 +8,10 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+node_modules.nosync
 dist
 dist-ssr
+release.nosync
 *.local
 
 # Editor directories and files

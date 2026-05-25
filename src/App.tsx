@@ -20,6 +20,10 @@ import {
   savePlanConfig,
 } from "./store";
 import { ACCESSORIES, DEFAULT_SKIN_ID, SKINS, findSkin, type ActionName } from "./skins";
+import { CHANGELOG, entriesNewerThan } from "./changelog";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import {
   PET_SCALE_DEFAULT,
   clampScale,
@@ -982,6 +986,99 @@ export function OnboardingApp() {
             </div>
           </section>
         )}
+      </div>
+    </div>
+  );
+}
+
+export function ChangelogApp() {
+  const [ctx, setCtx] = useState<{ mode: "whatsnew" | "full"; sinceVersion: string | null }>({
+    mode: "full",
+    sinceVersion: null,
+  });
+
+  useEffect(() => {
+    invoke<{ mode: "whatsnew" | "full"; sinceVersion: string | null }>("get_changelog_context")
+      .then((c) => {
+        if (c && (c.mode === "whatsnew" || c.mode === "full")) setCtx(c);
+      })
+      .catch(() => {
+        // 컨텍스트를 못 받으면 전체 목록으로 폴백.
+      });
+    // 창이 살아 있는 동안 다시 열리면(예: 팝업 후 메뉴 클릭) main 이 모드를 다시 보냄.
+    const un = listen<{ mode: "whatsnew" | "full"; sinceVersion: string | null }>(
+      "changelog-context",
+      (e) => {
+        if (e.payload && (e.payload.mode === "whatsnew" || e.payload.mode === "full")) {
+          setCtx(e.payload);
+        }
+      },
+    );
+    return () => {
+      un.then((f) => f()).catch(() => {});
+    };
+  }, []);
+
+  const entries = useMemo(
+    () => (ctx.mode === "whatsnew" ? entriesNewerThan(CHANGELOG, ctx.sinceVersion) : CHANGELOG),
+    [ctx],
+  );
+
+  const closeSelf = async () => {
+    try {
+      await getCurrentWindow().close();
+    } catch {
+      // best-effort
+    }
+  };
+
+  const isWhatsNew = ctx.mode === "whatsnew";
+
+  return (
+    <div className="changelog-window">
+      <div className="changelog-card">
+        <header className="changelog-header">
+          {isWhatsNew ? (
+            <>
+              <span className="changelog-badge">새 버전으로 업데이트됐어요 🎋</span>
+              <h1>이번 업데이트에서 바뀐 점</h1>
+            </>
+          ) : (
+            <h1>업데이트 일지</h1>
+          )}
+        </header>
+
+        {entries.length === 0 ? (
+          <p className="changelog-empty">표시할 항목이 없어요.</p>
+        ) : (
+          <ol className="changelog-list">
+            {entries.map((e) => (
+              <li key={e.version} className="changelog-entry">
+                {/* 제목만 보이는 접힘 상태가 기본. 팝업(whatsnew)에선 새 항목을 펼쳐서 보여줌. */}
+                <details className="changelog-details" open={isWhatsNew}>
+                  <summary className="changelog-summary">
+                    <span className="changelog-title">{e.title}</span>
+                    <span className="changelog-meta">
+                      <span className="changelog-version">v{e.version}</span>
+                      <span className="changelog-date">{e.date}</span>
+                    </span>
+                  </summary>
+                  <div className="changelog-body">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                      {e.body}
+                    </ReactMarkdown>
+                  </div>
+                </details>
+              </li>
+            ))}
+          </ol>
+        )}
+
+        <div className="changelog-footer">
+          <button type="button" className="changelog-close" onClick={closeSelf}>
+            닫기
+          </button>
+        </div>
       </div>
     </div>
   );

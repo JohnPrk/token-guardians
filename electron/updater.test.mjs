@@ -182,3 +182,25 @@ describe("RELEASES_URL", () => {
     );
   });
 });
+
+// 업데이트 일지 "방금 업데이트됨" 팝업 게이트.
+describe("shouldShowWhatsNew", () => {
+  it("신규 설치(lastSeen 없음)에는 팝업 안 띄움", () => {
+    expect(updater.shouldShowWhatsNew(null, "2.26.0")).toBe(false);
+    expect(updater.shouldShowWhatsNew(undefined, "2.26.0")).toBe(false);
+    expect(updater.shouldShowWhatsNew("", "2.26.0")).toBe(false);
+  });
+
+  it("current 가 lastSeen 보다 새 버전이면 팝업", () => {
+    expect(updater.shouldShowWhatsNew("2.15.0", "2.26.0")).toBe(true);
+    expect(updater.shouldShowWhatsNew("2.16.0", "2.16.1")).toBe(true);
+  });
+
+  it("같은 버전이면 팝업 안 띄움(재실행)", () => {
+    expect(updater.shouldShowWhatsNew("2.26.0", "2.26.0")).toBe(false);
+  });
+
+  it("current 가 더 낮으면(다운그레이드) 팝업 안 띄움", () => {
+    expect(updater.shouldShowWhatsNew("2.26.0", "2.15.0")).toBe(false);
+  });
+});
