@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>토큰 판다 (Token Panda) — Claude·Gemini 토큰 잔량을 지켜보는 데스크톱 펫</title>
+    <meta
+      name="description"
+      content="데스크톱 한구석에서 Claude·Gemini 토큰 잔량을 라이브로 지켜봐주는 작은 판다. 5분 캐시 골든타임을 놓치지 않게 신호를 보내는 메뉴바 펫."
+    />
+    <link rel="icon" href="assets/favicon.svg" />
+    <meta property="og:title" content="토큰 판다 (Token Panda)" />
+    <meta
+      property="og:description"
+      content="Claude·Gemini 토큰 잔량을 지켜봐주는 데스크톱 펫. 5분 캐시 골든타임 알림."
+    />
+    <meta property="og:image" content="assets/icon.png" />
+    <meta property="og:type" content="website" />
+    <style>
+      :root {
+        --accent: #6b4cff;
+        --accent-soft: rgba(107, 76, 255, 0.08);
+        --accent-border: #d3cde6;
+        --ink: #2a2440;
+        --muted: #6b6580;
+        --bg: #ffffff;
+        --bg-soft: #f7f5ff;
+        --card: #ffffff;
+        --radius: 16px;
+        --shadow: 0 8px 30px rgba(60, 40, 130, 0.08);
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+          "Pretendard", "Segoe UI", Roboto, sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+      h2 {
+        font-size: clamp(24px, 4vw, 34px);
+        margin: 0 0 12px;
+        letter-spacing: -0.02em;
+      }
+      .section-lead { color: var(--muted); margin: 0 0 36px; font-size: 17px; }
+      section { padding: 72px 0; border-top: 1px solid #efecf8; }
+
+      /* ── nav ── */
+      nav {
+        position: sticky; top: 0; z-index: 10;
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: saturate(180%) blur(12px);
+        border-bottom: 1px solid #efecf8;
+      }
+      nav .wrap {
+        display: flex; align-items: center; justify-content: space-between;
+        height: 60px;
+      }
+      .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+      .brand img { width: 30px; height: 30px; border-radius: 7px; }
+      .nav-links { display: flex; gap: 22px; font-size: 14px; }
+      .nav-links a { color: var(--muted); }
+      @media (max-width: 640px) { .nav-links { display: none; } }
+
+      /* ── hero ── */
+      .hero {
+        text-align: center; padding: 80px 0 72px;
+        background: radial-gradient(
+          120% 120% at 50% 0%, var(--bg-soft) 0%, #ffffff 70%
+        );
+        border-top: none;
+      }
+      .hero img.mascot {
+        width: 200px; height: 200px;
+        filter: drop-shadow(0 12px 24px rgba(60, 40, 130, 0.18));
+        animation: bob 3.2s ease-in-out infinite;
+      }
+      @keyframes bob {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+      .hero h1 {
+        font-size: clamp(30px, 6vw, 48px);
+        margin: 20px 0 10px; letter-spacing: -0.03em;
+      }
+      .hero p.tagline {
+        font-size: clamp(16px, 2.4vw, 20px);
+        color: var(--muted); margin: 0 auto 28px; max-width: 560px;
+      }
+      .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+      .btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 13px 22px; border-radius: 12px; font-weight: 600;
+        font-size: 15px; border: 1.5px solid transparent; cursor: pointer;
+      }
+      .btn-primary { background: var(--accent); color: #fff; }
+      .btn-primary:hover { background: #5a3de0; text-decoration: none; }
+      .btn-ghost {
+        background: #fff; color: var(--accent); border-color: var(--accent-border);
+      }
+      .btn-ghost:hover { border-color: var(--accent); text-decoration: none; }
+      .hero .platforms { margin-top: 16px; font-size: 13px; color: var(--muted); }
+
+      /* ── problem callout ── */
+      .callout {
+        background: var(--accent-soft); border: 1px solid var(--accent-border);
+        border-radius: var(--radius); padding: 20px 24px; margin: 24px 0;
+      }
+      .callout strong { color: var(--accent); }
+
+      /* ── feature grid ── */
+      .grid {
+        display: grid; gap: 18px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+      .card {
+        background: var(--card); border: 1px solid #ece8f8;
+        border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow);
+      }
+      .card .ico { font-size: 26px; }
+      .card h3 { margin: 10px 0 6px; font-size: 17px; }
+      .card p { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+      /* ── steps ── */
+      .steps { display: grid; gap: 16px; counter-reset: step; }
+      .step {
+        display: flex; gap: 16px; align-items: flex-start;
+        background: var(--bg-soft); border-radius: var(--radius); padding: 18px 20px;
+      }
+      .step .num {
+        flex: 0 0 32px; width: 32px; height: 32px; border-radius: 50%;
+        background: var(--accent); color: #fff; font-weight: 700;
+        display: grid; place-items: center; font-size: 15px;
+      }
+      .step h3 { margin: 2px 0 4px; font-size: 16px; }
+      .step p { margin: 0; color: var(--muted); font-size: 14.5px; }
+      .step code {
+        background: #efe9ff; padding: 1px 6px; border-radius: 5px;
+        font-size: 13px; color: #5a3de0;
+      }
+
+      /* ── character states ── */
+      .states {
+        display: grid; gap: 8px;
+        grid-template-columns: repeat(6, 1fr);
+      }
+      @media (max-width: 720px) { .states { grid-template-columns: repeat(3, 1fr); } }
+      .state { text-align: center; }
+      .state img { width: 100%; max-width: 110px; height: auto; }
+      .state span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+      /* ── tray modes ── */
+      .modes { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+      .mode {
+        border: 1px solid #ece8f8; border-radius: var(--radius); padding: 18px 20px;
+      }
+      .mode .pill {
+        display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: #1d1730; color: #c9beff; padding: 6px 12px; border-radius: 8px;
+        font-size: 13px; margin-bottom: 10px;
+      }
+      .mode p { margin: 0; color: var(--muted); font-size: 14px; }
+
+      /* ── screenshot placeholder ── */
+      figure { margin: 24px 0 0; }
+      .shot {
+        border: 2px dashed var(--accent-border); border-radius: var(--radius);
+        background: var(--bg-soft);
+        min-height: 220px; display: grid; place-items: center;
+        color: var(--muted); text-align: center; padding: 24px;
+      }
+      .shot .tag {
+        font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+        background: var(--accent); color: #fff; padding: 3px 10px; border-radius: 20px;
+        display: inline-block; margin-bottom: 8px;
+      }
+      .shot .fname {
+        display: inline-block; margin-top: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 13px; background: #efe9ff; color: #5a3de0;
+        padding: 4px 10px; border-radius: 8px;
+      }
+      .shot .hint { font-size: 12.5px; margin-top: 6px; opacity: 0.8; }
+      figure img.real {
+        width: 100%; border-radius: var(--radius); border: 1px solid #ece8f8;
+        box-shadow: var(--shadow); display: block;
+      }
+      figcaption { color: var(--muted); font-size: 13px; margin-top: 8px; text-align: center; }
+
+      /* ── provider chips ── */
+      .providers { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+      .pchip {
+        display: inline-flex; align-items: center; gap: 8px;
+        border: 1.5px solid var(--accent-border); border-radius: 12px;
+        padding: 10px 16px; font-weight: 600;
+      }
+      .pchip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
+      /* ── footer ── */
+      footer {
+        text-align: center; padding: 48px 0; color: var(--muted); font-size: 14px;
+        border-top: 1px solid #efecf8;
+      }
+      footer a { color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="wrap">
+        <span class="brand"><img src="assets/icon.png" alt="" />토큰 판다</span>
+        <span class="nav-links">
+          <a href="#why">왜</a>
+          <a href="#setup">설정</a>
+          <a href="#features">기능</a>
+          <a href="#modes">표시 모드</a>
+          <a href="#accounts">계정 전환</a>
+          <a href="#update">자동 업데이트</a>
+          <a href="https://github.com/JohnPrk/token-panda-v2">GitHub</a>
+        </span>
+      </div>
+    </nav>
+
+    <!-- HERO -->
+    <header class="hero">
+      <div class="wrap">
+        <img class="mascot" src="assets/panda-idle.png" alt="토큰 판다 마스코트" />
+        <h1>토큰 판다</h1>
+        <p class="tagline">
+          데스크톱 한구석에서 너의 <strong>Claude·Gemini 토큰 잔량</strong>을
+          지켜봐주는 작은 판다. 5분 캐시 골든타임을 놓치지 않게 신호를 보내요.
+        </p>
+        <div class="cta">
+          <a class="btn btn-primary" href="https://github.com/JohnPrk/token-panda-v2/releases/latest"> macOS .dmg 다운로드</a>
+          <a class="btn btn-ghost" href="https://github.com/JohnPrk/token-panda-v2/releases/latest"> Windows .exe 다운로드</a>
+        </div>
+        <p class="platforms">macOS 11+ (Apple Silicon) · Windows 10+ x64 · 무료 · MIT</p>
+      </div>
+    </header>
+
+    <!-- WHY -->
+    <section id="why">
+      <div class="wrap">
+        <h2>왜 만들었나</h2>
+        <p class="section-lead">Claude의 유일한 단점은 <strong>토큰 한도</strong>예요.</p>
+        <p>
+          질문에 답을 받고 <strong>5분 이내</strong>에 다음 대화를 이어가면, Claude는
+          기존 내용을 캐시해두었다가 토큰 소모량을 획기적으로 아껴줍니다. 하지만 다른
+          업무를 하다 보면 이 짧은 '골든타임'을 놓치기 쉬워요. 이제 화면 속 작은 판다가
+          그 타이밍을 놓치지 않게 신호를 보냅니다.
+        </p>
+        <div class="callout">
+          💡 마지막 요청에서 <strong>5분 안에</strong> 다음 요청을 보내면 그 직전까지의
+          컨텍스트가 캐시 히트로 처리돼 토큰 사용량이 <strong>1/10</strong>로 줄어듭니다.
+        </div>
+        <figure>
+          <div class="shot">
+            <div>
+              <span class="tag">여기에 이미지</span><br />
+              데스크톱에 떠 있는 판다 펫 + 메뉴바 잔량 표시
+              <span class="fname">docs/assets/shot-desktop.png</span>
+              <div class="hint">이 이름으로 저장하면 자동으로 표시돼요</div>
+            </div>
+          </div>
+          <img
+            class="real"
+            src="assets/shot-desktop.png"
+            alt="실행 중인 토큰 판다 — 데스크톱 펫과 메뉴바 잔량"
+            style="display: none"
+            onload="this.style.display='block'; this.previousElementSibling.style.display='none';"
+          />
+          <figcaption>실행 중인 토큰 판다 (데스크톱 + 메뉴바)</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- SETUP -->
+    <section id="setup">
+      <div class="wrap">
+        <h2>설정은 이렇게</h2>
+        <p class="section-lead">처음 한 번만 등록하면 30초마다 자동으로 갱신돼요.</p>
+        <div class="steps">
+          <div class="step">
+            <div class="num">1</div>
+            <div>
+              <h3>캐릭터 고르기</h3>
+              <p>데스크톱 모서리에 앉을 친구를 고릅니다 (판다 · 고양이 · 햄스터). 나중에 <code>설정</code>에서 언제든 변경 가능.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="num">2</div>
+            <div>
+              <h3>서비스 선택 — Claude 또는 Gemini</h3>
+              <p>새 계정 추가에서 <strong>Claude</strong> 또는 <strong>Gemini</strong> 탭을 고릅니다. 두 서비스 모두 세션 쿠키 한 줄로 연동돼요.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="num">3</div>
+            <div>
+              <h3>쿠키 붙여넣기</h3>
+              <p>안내대로 브라우저 DevTools → Network 탭에서 <code>cookie:</code> 한 줄을 복사해 붙여넣으면 끝. <strong>테스트</strong> 버튼으로 바로 확인할 수 있어요. (Claude는 자동 가져오기도 지원)</p>
+            </div>
+          </div>
+        </div>
+        <figure>
+          <div class="shot">
+            <div>
+              <span class="tag">여기에 이미지</span><br />
+              설정 창 — 계정 카드 + 쿠키 입력 폼 (Claude/Gemini 탭)
+              <span class="fname">docs/assets/shot-settings.png</span>
+              <div class="hint">⚠️ 쿠키 값이 화면에 안 보이는 상태로 캡처해 주세요</div>
+            </div>
+          </div>
+          <img
+            class="real"
+            src="assets/shot-settings.png"
+            alt="설정 창 — 멀티 계정과 쿠키 등록 폼"
+            style="display: none"
+            onload="this.style.display='block'; this.previousElementSibling.style.display='none';"
+          />
+          <figcaption>설정 창 — 멀티 계정 + 쿠키 등록</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features">
+      <div class="wrap">
+        <h2>어떤 기능이 있나</h2>
+        <p class="section-lead">메뉴바에 살면서 토큰을 대신 지켜봐요.</p>
+        <div class="grid">
+          <div class="card">
+            <div class="ico">📊</div>
+            <h3>메뉴바 라이브 표시</h3>
+            <p>5시간 / 주간 토큰 잔량을 메뉴바에 실시간으로 표시.</p>
+          </div>
+          <div class="card">
+            <div class="ico">⏰</div>
+            <h3>5분 캐시 타이머</h3>
+            <p>질문을 던지는 순간 카운트다운이 시작되고, 만료 전 캐릭터가 흔들리며 신호.</p>
+          </div>
+          <div class="card">
+            <div class="ico">🔢</div>
+            <h3>캐시 Hit/Miss 추적</h3>
+            <p>매 응답의 캐시 성공·실패 수치를 직접 확인해 토큰 절약 효율 관리.</p>
+          </div>
+          <div class="card">
+            <div class="ico">🐼</div>
+            <h3>8단계 캐릭터 상태</h3>
+            <p>잔량에 따라 Full부터 Sleepy까지 외형·감정·동작이 변화.</p>
+          </div>
+          <div class="card">
+            <div class="ico">🖱️</div>
+            <h3>자유로운 배치</h3>
+            <p>화면을 가리지 않고 클릭 앤 드래그로 어디든 이동. 빈 공간 클릭은 통과.</p>
+          </div>
+          <div class="card">
+            <div class="ico">👥</div>
+            <h3>멀티 계정 · 멀티 서비스</h3>
+            <p>Claude·Gemini 계정을 여러 개 등록하고 카드 클릭으로 즉시 전환.</p>
+          </div>
+        </div>
+
+        <h2 style="margin-top:56px">잔량 따라 변하는 표정</h2>
+        <p class="section-lead">5시간 토큰 잔량에 따라 8단계로 외형과 동작이 바뀌어요.</p>
+        <div class="states">
+          <div class="state"><img src="assets/panda-cheerful.png" alt="" /><span>여유</span></div>
+          <div class="state"><img src="assets/panda-idle.png" alt="" /><span>보통</span></div>
+          <div class="state"><img src="assets/panda-sit.png" alt="" /><span>앉음</span></div>
+          <div class="state"><img src="assets/panda-tired.png" alt="" /><span>지침</span></div>
+          <div class="state"><img src="assets/panda-sleepy.png" alt="" /><span>졸림</span></div>
+          <div class="state"><img src="assets/panda-dead.png" alt="" /><span>방전</span></div>
+        </div>
+        <figure>
+          <div class="shot">
+            <div>
+              <span class="tag">여기에 GIF</span><br />
+              캐시 Hit(노란 폭죽) / Miss(푸른 비) 이펙트 모션
+              <span class="fname">docs/assets/shot-cache.gif</span>
+              <div class="hint">GIF 권장 (Gifski). 동영상이면 mp4로 주면 &lt;video&gt;로 바꿔줄게요</div>
+            </div>
+          </div>
+          <img
+            class="real"
+            src="assets/shot-cache.gif"
+            alt="캐시 Hit/Miss 이펙트 모션"
+            style="display: none"
+            onload="this.style.display='block'; this.previousElementSibling.style.display='none';"
+          />
+          <figcaption>캐시 결과 시각화 — Hit 폭죽 / Miss 비</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- TRAY MODES -->
+    <section id="modes">
+      <div class="wrap">
+        <h2>표시 모드</h2>
+        <p class="section-lead">메뉴바에 무엇을 보여줄지 골라요 (메뉴바 메뉴에서 전환).</p>
+        <div class="modes">
+          <div class="mode">
+            <span class="pill">5h 42%</span>
+            <p><strong>5시간</strong> — 5시간 창의 잔량만 간결하게.</p>
+          </div>
+          <div class="mode">
+            <span class="pill">5h 42% · 주 88%</span>
+            <p><strong>5시간 + 주간</strong> — 5시간과 주간 한도를 함께.</p>
+          </div>
+          <div class="mode">
+            <span class="pill">5h 42% · 주 88% · $12</span>
+            <p><strong>5시간 + 주간 + $</strong> — prepaid 잔액까지 (Claude, platform 연동 시).</p>
+          </div>
+        </div>
+        <p style="margin-top:18px; color:var(--muted); font-size:14px">
+          메뉴바 대나무 아이콘은 잔량에 따라 줄기 수가 변해요 — 75%↑ 4줄기 · 50%↑ 3줄기 · 25%↑ 2줄기 · 25%↓ 1줄기.
+        </p>
+      </div>
+    </section>
+
+    <!-- ACCOUNTS -->
+    <section id="accounts">
+      <div class="wrap">
+        <h2>계정 전환 · 멀티 서비스</h2>
+        <p class="section-lead">Claude와 Gemini를 한 펫에서 오가며 봐요.</p>
+        <p>
+          계정을 여러 개 등록해두고 설정의 <strong>계정 카드를 클릭</strong>하면 활성 계정이
+          바뀌고, 메뉴바 잔량·펫 캐릭터·폴링 자격증명이 한 번에 그 계정으로 전환돼요.
+          서비스마다 인증 방식이 달라도 같은 "쿠키 한 줄" UX로 통일했습니다.
+        </p>
+        <div class="providers">
+          <span class="pchip on">🟣 Claude</span>
+          <span class="pchip on">🔵 Gemini</span>
+          <span class="pchip">＋ 향후 확장</span>
+        </div>
+        <figure>
+          <div class="shot">
+            <div>
+              <span class="tag">여기에 이미지</span><br />
+              계정 카드 여러 개 (Claude + Gemini) + 활성 배지
+              <span class="fname">docs/assets/shot-accounts.png</span>
+              <div class="hint">계정 카드 줄만 — 폼은 닫힌 상태로 캡처 권장</div>
+            </div>
+          </div>
+          <img
+            class="real"
+            src="assets/shot-accounts.png"
+            alt="멀티 계정 카드 — Claude와 Gemini"
+            style="display: none"
+            onload="this.style.display='block'; this.previousElementSibling.style.display='none';"
+          />
+          <figcaption>멀티 계정 카드 — 클릭으로 활성 전환</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- UPDATE -->
+    <section id="update">
+      <div class="wrap">
+        <h2>새로고침 · 자동 업데이트</h2>
+        <p class="section-lead">한 번 켜두면 알아서 최신을 유지해요.</p>
+        <div class="grid">
+          <div class="card">
+            <div class="ico">🔄</div>
+            <h3>30초 자동 폴링</h3>
+            <p>등록한 쿠키로 30초마다 잔량을 자동 갱신. 펫 우클릭으로 즉시 새로고침도 가능.</p>
+          </div>
+          <div class="card">
+            <div class="ico">🔌</div>
+            <h3>연결 끊김 자동 감지</h3>
+            <p>쿠키가 만료되면 판다가 '연결 실패' 표지판을 들고, 설정 창이 자동으로 열려 새 쿠키를 요청. (Gemini는 회전 토큰을 자동 갱신해 오래 켜둬도 유지)</p>
+          </div>
+          <div class="card">
+            <div class="ico">🆕</div>
+            <h3>앱 자동 업데이트</h3>
+            <p>새 버전이 나오면 트레이 헤더에 🆕 마커가 뜨고, 클릭 한 번으로 최신 버전을 받아 설치.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">
+        <p>
+          <a href="https://github.com/JohnPrk/token-panda-v2">GitHub</a> ·
+          <a href="https://github.com/JohnPrk/token-panda-v2/releases/latest">최신 릴리스</a> ·
+          MIT License
+        </p>
+        <p>made with 🐼 by JohnPrk</p>
+      </div>
+    </footer>
+  </body>
+</html>
