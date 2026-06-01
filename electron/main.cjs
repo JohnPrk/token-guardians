@@ -46,6 +46,7 @@ let petWin = null;
 let settingsWin = null;
 let onboardingWin = null;
 let changelogWin = null;
+let usageWin = null;
 let tray = null;
 let quitting = false;
 
@@ -254,6 +255,35 @@ function openChangelog(mode, sinceVersion) {
   changelogWin.loadURL(pageUrl("changelog.html"));
   changelogWin.on("closed", () => {
     changelogWin = null;
+  });
+}
+
+// 트레이 "월별 API 사용량" 이 여는 독립 창. 설정 창과 별개로, 활성 계정의 이번
+// 달 키별 비용만 보여준다. 창이 열려 MonthlyUsageApp(=MonthlyApiCost)이 마운트될
+// 때 fetch_api_key_costs 를 1회 호출한다(폴링 없음).
+function openMonthlyUsage() {
+  if (usageWin && !usageWin.isDestroyed()) {
+    usageWin.show();
+    if (usageWin.isMinimized()) usageWin.restore();
+    usageWin.focus();
+    return;
+  }
+  usageWin = new BrowserWindow({
+    width: 460,
+    height: 560,
+    minWidth: 380,
+    minHeight: 420,
+    resizable: true,
+    center: true,
+    title: "토큰 판다 — 월별 API 사용량",
+    icon: ICON,
+    autoHideMenuBar: true,
+    webPreferences: webPrefs("usage"),
+  });
+  usageWin.setMenuBarVisibility(false);
+  usageWin.loadURL(pageUrl("usage.html"));
+  usageWin.on("closed", () => {
+    usageWin = null;
   });
 }
 
@@ -579,6 +609,7 @@ function rebuildTray() {
   }
 
   template.push(
+    { label: "월별 API 사용량", click: () => openMonthlyUsage() },
     { type: "separator" },
     { label: "설정...", click: () => openSettings() },
     { label: "업데이트 일지", click: () => openChangelog("full", null) },
@@ -698,6 +729,26 @@ async function handleCommand(cmd, a) {
         }
       }
       return { ...u, prepaid_dollars, prepaid_error };
+    }
+    case "fetch_api_key_costs": {
+      // 설정 창이 열릴 때 1회 호출 (폴링 아님). 활성 계정 기준. prepaid 와 달리
+      // platformOrgId 가 없어도 provider 가 공유 쿠키로 API 조직을 자동 발견하므로
+      // 여기선 provider 지원 여부만 게이팅한다. 그 외엔 available:false + reason/
+      // error 로 UI 가 안내 문구를 띄운다.
+      if (!apiConfig) return { available: false, reason: "no_account" };
+      const provider = providers.resolveProvider(apiConfig.provider);
+      if (
+        !provider.capabilities.apiKeyCosts ||
+        typeof provider.fetchApiKeyCosts !== "function"
+      ) {
+        return { available: false, reason: "unsupported" };
+      }
+      try {
+        const result = await provider.fetchApiKeyCosts(apiConfig.credentials || {});
+        return { available: true, ...result };
+      } catch (e) {
+        return { available: false, error: e && e.message ? e.message : String(e) };
+      }
     }
     case "refresh_usage":
       await pollOnce();

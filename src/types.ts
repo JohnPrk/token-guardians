@@ -21,6 +21,38 @@ export type PrepaidCredits = {
   fetched_at: string;
 };
 
+/** platform.claude.com 콘솔의 API 키 1개에 대한 *이번 달* 누적 비용($).
+ *  usage_cost(group_by=api_key_id)의 센트 합을 달러로 환산한 값. */
+export type ApiKeyCost = {
+  /** 콘솔 key id (apikey_…) 또는 의사키("console" 등). */
+  id: string;
+  /** api_keys 목록에서 조인한 표시 이름. 조인 실패 시 폴백 라벨. */
+  name: string;
+  /** sk-ant-api03-…XXXX 형태의 부분 힌트. 조인 실패/의사키면 null. */
+  partial_key_hint: string | null;
+  dollars: number;
+};
+
+/** "이번 달 API 사용량" 섹션이 IPC `fetch_api_key_costs`로 받는 결과.
+ *  available=false면 reason/error로 UI가 안내 문구를 고른다. 폴링 없이
+ *  설정 창이 열릴 때 1회만 채워진다. */
+export type ApiKeyCostsResult = {
+  available: boolean;
+  /** available=false일 때 왜 못 보여주는지. */
+  reason?: "no_account" | "unsupported" | "no_platform_org";
+  /** 호출은 했으나 네트워크/API 오류로 실패한 경우의 메시지. */
+  error?: string | null;
+  /** "YYYY-MM" — 어느 달 기준인지. */
+  month?: string;
+  starting_on?: string;
+  ending_before?: string;
+  /** 모든 키 비용의 합($). */
+  total_dollars?: number;
+  /** 달러 내림차순 키 목록. */
+  keys?: ApiKeyCost[];
+  fetched_at?: string;
+};
+
 export type UsageSnapshot = {
   five_hour_tokens: number;
   weekly_tokens: number;

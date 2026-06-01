@@ -2374,3 +2374,167 @@
   background: #4a31bf;
 }
 
+/* ── 설정 창 "이번 달 API 사용량" ────────────────────────────────────────
+   platform.claude.com 콘솔 비용 컬럼을 키별로 합산해 보여주는 섹션. 총합 한
+   줄은 상시, 키별 상세는 마우스 호버 시 in-flow 로 펼쳐진다(.settings 가
+   overflow-y:auto 라 absolute 팝오버는 잘려서 펼침 방식 채택). */
+.monthly-cost-section {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.monthly-cost-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.monthly-cost-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
+.monthly-cost-month {
+  font-size: 10px;
+  color: #999;
+}
+.monthly-cost-note {
+  font-size: 11px;
+  color: #777;
+  margin: 0;
+}
+.monthly-cost-total {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f6f4ff;
+  border: 1px solid #e6e0ff;
+  cursor: default;
+  outline: none;
+}
+.monthly-cost-total:hover,
+.monthly-cost-total:focus-within {
+  border-color: #6b4cff;
+}
+.monthly-cost-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #4a31bf;
+  font-variant-numeric: tabular-nums;
+}
+.monthly-cost-hint {
+  font-size: 10px;
+  color: #9a8fd0;
+}
+/* 키별 상세 — 기본 접힘, 호버/포커스 시 펼침. .monthly-cost-total 의 자식이라
+   펼쳐진 영역 위에 마우스가 있어도 hover 가 유지된다. */
+.monthly-cost-detail {
+  flex-basis: 100%;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.18s ease, opacity 0.18s ease, margin-top 0.18s ease;
+  margin-top: 0;
+}
+.monthly-cost-total:hover .monthly-cost-detail,
+.monthly-cost-total:focus-within .monthly-cost-detail {
+  max-height: 320px;
+  opacity: 1;
+  margin-top: 8px;
+  overflow-y: auto;
+}
+.monthly-cost-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.monthly-cost-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 11px;
+  padding: 3px 2px;
+  border-bottom: 1px dashed #ece8fb;
+}
+.monthly-cost-row .mc-name {
+  color: #444;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.monthly-cost-row .mc-dollars {
+  color: #4a31bf;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.monthly-cost-detail-foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: #333;
+  padding: 6px 2px 2px;
+  margin-top: 2px;
+  border-top: 1px solid #e6e0ff;
+}
+
+/* ── 트레이 "월별 API 사용량" 전용 창 ──────────────────────────────────────
+   설정 창과 같은 톤(어두운 배경 + 밝은 회색 카드)을 재사용하되, 비용 섹션
+   하나만 담는 가벼운 창. 내용은 .monthly-cost-* 를 그대로 쓴다. */
+.usage-window {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at top left, rgba(74, 60, 130, 0.55), transparent 60%),
+    radial-gradient(ellipse at bottom right, rgba(60, 60, 75, 0.55), transparent 60%),
+    linear-gradient(160deg, #2f2940 0%, #25232c 100%);
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  overflow: auto;
+  color: #ececf1;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.usage-card {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 520px;
+  min-width: 0;
+  margin: 0 auto;
+  background: #dcd9e3;
+  color: #1f1d28;
+  border: 1px solid #c2bccf;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  padding: 20px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color-scheme: light;
+}
+.usage-card * {
+  color-scheme: light;
+}
+/* 전용 창에선 비용 섹션이 카드의 단독 콘텐츠라 상단 구분선/여백 불필요 */
+.usage-card .monthly-cost-section {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+.usage-card .monthly-cost-title {
+  font-size: 14px;
+}
+

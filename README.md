@@ -2,8 +2,8 @@
 
 > 데스크톱 한구석에서 너의 Claude 토큰 잔량을 지켜봐주는 작은 판다.
 
-[![Download .dmg](https://img.shields.io/badge/Download-.dmg%20v2.21.0-6b4cff?style=for-the-badge&logo=apple)](https://github.com/JohnPrk/token-panda-v2/releases/latest/download/token-panda_2.21.0_arm64.dmg)
-[![Download Windows](https://img.shields.io/badge/Download-Windows%20v2.21.0-0078d4?style=for-the-badge&logo=windows)](https://github.com/JohnPrk/token-panda-v2/releases/latest/download/token-panda_2.21.0_x64-setup.exe)
+[![Download .dmg](https://img.shields.io/badge/Download-.dmg%20v2.22.0-6b4cff?style=for-the-badge&logo=apple)](https://github.com/JohnPrk/token-panda-v2/releases/latest/download/token-panda_2.22.0_arm64.dmg)
+[![Download Windows](https://img.shields.io/badge/Download-Windows%20v2.22.0-0078d4?style=for-the-badge&logo=windows)](https://github.com/JohnPrk/token-panda-v2/releases/latest/download/token-panda_2.22.0_x64-setup.exe)
 [![platforms](https://img.shields.io/badge/platform-macOS%2011%2B%20%C2%B7%20Windows%2010%2B-lightgrey?style=for-the-badge)](#한계)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](#라이선스)
 

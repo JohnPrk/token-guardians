@@ -50,6 +50,7 @@ export default defineConfig({
         changelog: resolve(__dirname, 'changelog.html'),
         preview: resolve(__dirname, 'preview.html'),
         'skin-grid': resolve(__dirname, 'skin-grid.html'),
+        usage: resolve(__dirname, 'usage.html'),
       },
     },
   },

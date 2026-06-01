@@ -5,6 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import type {
   Account,
   AccountsConfig,
+  ApiKeyCostsResult,
   PetState,
   PlanConfig,
   ProviderId,
@@ -1628,6 +1629,135 @@ function toneOf(remaining: number) {
   if (remaining <= 0) return "danger";
   if (remaining <= 0.3) return "warn";
   return "ok";
+}
+
+// available=false 일 때 사용자에게 보여줄 안내 문구. reason/error 별로 다음
+// 행동을 한 줄로 알려준다 (gemini/계정없음/콘솔 권한 없음/네트워크 오류).
+function costReasonText(data: ApiKeyCostsResult | null): string {
+  if (!data) return "비용을 불러오지 못했어요.";
+  if (data.error) {
+    // 403 / permission_error = claude.ai 채팅 세션으론 콘솔 비용을 못 읽는 경우.
+    // 콘솔(platform.claude.com)에 로그인된 세션 쿠키가 필요하다고 안내한다.
+    if (/\b403\b|permission|authorization/i.test(data.error)) {
+      return "이 계정의 claude.ai 세션으로는 콘솔 비용을 읽을 권한이 없어요. 계정 편집의 'Platform 쿠키'에 platform.claude.com 콘솔에 로그인된 세션 쿠키를 넣어주세요.";
+    }
+    return `비용 조회 오류: ${data.error}`;
+  }
+  switch (data.reason) {
+    case "no_account":
+      return "활성 계정이 없어요. 계정을 추가하면 이번 달 비용을 볼 수 있어요.";
+    case "unsupported":
+      return "현재 활성 계정은 비용 조회를 지원하지 않아요 (Claude 계정만 가능).";
+    case "no_platform_org":
+      return "계정 편집에서 Platform Org ID를 채우면 키별 비용을 볼 수 있어요.";
+    default:
+      return "비용을 불러오지 못했어요.";
+  }
+}
+
+// 설정 창 "이번 달 API 사용량" — platform.claude.com 콘솔의 키별 "비용" 컬럼을
+// 합산해 보여준다. 폴링 없이 *이 컴포넌트가 마운트될 때*(= 설정 창이 열릴 때)
+// 1회만 fetch (사용자 지정). 총합 한 줄은 상시, 키별 상세는 마우스 호버 시 펼침.
+function MonthlyApiCost() {
+  const [data, setData] = useState<ApiKeyCostsResult | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    invoke<ApiKeyCostsResult>("fetch_api_key_costs")
+      .then((r) => {
+        if (alive) setData(r);
+      })
+      .catch((e) => {
+        if (alive) setData({ available: false, error: String(e) });
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const total = data?.total_dollars ?? 0;
+  const keys = data?.keys ?? [];
+  const monthLabel = data?.month ? data.month.replace("-", ". ") : "";
+
+  return (
+    <div className="monthly-cost-section">
+      <div className="monthly-cost-head">
+        <span className="monthly-cost-title">이번 달 API 사용량</span>
+        {data?.available && monthLabel && (
+          <span className="monthly-cost-month">{monthLabel}</span>
+        )}
+      </div>
+
+      {loading ? (
+        <p className="monthly-cost-note">불러오는 중…</p>
+      ) : !data?.available ? (
+        <p className="monthly-cost-note">{costReasonText(data)}</p>
+      ) : (
+        <div
+          className="monthly-cost-total"
+          tabIndex={0}
+          aria-label={`이번 달 합계 ${total.toFixed(2)} 달러, 마우스를 올리면 키별 상세`}
+        >
+          <span className="monthly-cost-amount">${total.toFixed(2)}</span>
+          <span className="monthly-cost-hint">
+            {keys.length > 0
+              ? `키 ${keys.length}개 · 올리면 상세`
+              : "이번 달 사용 내역 없음"}
+          </span>
+          {keys.length > 0 && (
+            <div className="monthly-cost-detail" role="tooltip">
+              <ul className="monthly-cost-list">
+                {keys.map((k) => (
+                  <li key={k.id} className="monthly-cost-row">
+                    <span
+                      className="mc-name"
+                      title={k.partial_key_hint ?? undefined}
+                    >
+                      {k.name}
+                    </span>
+                    <span className="mc-dollars">${k.dollars.toFixed(2)}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="monthly-cost-detail-foot">
+                <span>합계</span>
+                <span>${total.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 트레이 "월별 API 사용량" 이 여는 독립 창. 비용만 보여주는 전용 창으로,
+// 내용은 MonthlyApiCost 를 그대로 재사용한다(이전엔 설정 창 안에 있던 것을
+// 트레이 메뉴 항목으로 분리). 창이 열려 컴포넌트가 마운트될 때 1회 fetch.
+export function MonthlyUsageApp() {
+  const closeSelf = async () => {
+    try {
+      await getCurrentWindow().close();
+    } catch {
+      // best-effort
+    }
+  };
+  return (
+    <div className="usage-window">
+      <div className="usage-card">
+        <MonthlyApiCost />
+        <div className="settings-actions">
+          <button className="primary" onClick={closeSelf}>
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Settings({

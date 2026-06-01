@@ -3,31 +3,37 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>토큰 판다 (Token Panda) — Claude·Gemini 토큰 잔량을 지켜보는 데스크톱 펫</title>
+    <title>토큰 판다 (Token Panda) — Claude·Gemini 토큰을 대신 알려주는 데스크톱 펫</title>
     <meta
       name="description"
-      content="데스크톱 한구석에서 Claude·Gemini 토큰 잔량을 라이브로 지켜봐주는 작은 판다. 5분 캐시 골든타임을 놓치지 않게 신호를 보내는 메뉴바 펫."
+      content="데스크톱 한구석에서 Claude·Gemini 토큰이 얼마 남았는지 대신 알려주는 작은 판다. 5분 캐시 골든타임을 놓치지 않게 챙겨 토큰을 아껴 쓰게 돕는 메뉴바 펫."
     />
     <link rel="icon" href="assets/favicon.svg" />
     <meta property="og:title" content="토큰 판다 (Token Panda)" />
     <meta
       property="og:description"
-      content="Claude·Gemini 토큰 잔량을 지켜봐주는 데스크톱 펫. 5분 캐시 골든타임 알림."
+      content="Claude·Gemini 토큰이 얼마 남았는지 대신 알려주는 데스크톱 펫. 5분 캐시 골든타임 알림으로 토큰을 아껴 쓰세요."
     />
     <meta property="og:image" content="assets/icon.png" />
     <meta property="og:type" content="website" />
     <style>
       :root {
         --accent: #6b4cff;
-        --accent-soft: rgba(107, 76, 255, 0.08);
-        --accent-border: #d3cde6;
-        --ink: #2a2440;
-        --muted: #6b6580;
+        --accent-2: #9b6bff;
+        --accent-soft: rgba(107, 76, 255, 0.07);
+        --line: #ece8f6;
+        --ink: #14101f;
+        --body: #46415c;
+        --muted: #837e96;
         --bg: #ffffff;
         --bg-soft: #f7f5ff;
         --card: #ffffff;
-        --radius: 16px;
-        --shadow: 0 8px 30px rgba(60, 40, 130, 0.08);
+        --card-2: #f2eeff;
+        --dark: #16111f;
+        --radius: 18px;
+        --shadow: 0 10px 40px rgba(40, 24, 90, 0.08);
+        --glow: 0 0 80px rgba(139, 107, 255, 0.25);
+        --maxw: 1080px;
       }
       * { box-sizing: border-box; }
       html { scroll-behavior: smooth; }
@@ -35,145 +41,501 @@
         margin: 0;
         font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
           "Pretendard", "Segoe UI", Roboto, sans-serif;
-        color: var(--ink);
+        color: var(--body);
         background: var(--bg);
-        line-height: 1.6;
+        line-height: 1.65;
         -webkit-font-smoothing: antialiased;
+        letter-spacing: -0.01em;
       }
       a { color: var(--accent); text-decoration: none; }
       a:hover { text-decoration: underline; }
-      .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
-      h2 {
-        font-size: clamp(24px, 4vw, 34px);
-        margin: 0 0 12px;
-        letter-spacing: -0.02em;
+      .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+      .eyebrow {
+        font-size: 12.5px; font-weight: 700; letter-spacing: 0.12em;
+        text-transform: uppercase; color: var(--accent); margin: 0 0 14px;
       }
-      .section-lead { color: var(--muted); margin: 0 0 36px; font-size: 17px; }
-      section { padding: 72px 0; border-top: 1px solid #efecf8; }
+      h2 {
+        font-size: clamp(26px, 4.2vw, 40px); line-height: 1.2;
+        margin: 0 0 14px; color: var(--ink); letter-spacing: -0.03em; font-weight: 800;
+      }
+      .lead { color: var(--muted); margin: 0 0 44px; font-size: 18px; max-width: 640px; }
+      section { padding: 100px 0; }
+      section + section { border-top: 1px solid var(--line); }
 
       /* ── nav ── */
       nav {
-        position: sticky; top: 0; z-index: 10;
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: saturate(180%) blur(12px);
-        border-bottom: 1px solid #efecf8;
+        position: sticky; top: 0; z-index: 20;
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: saturate(180%) blur(14px);
+        border-bottom: 1px solid var(--line);
       }
-      nav .wrap {
-        display: flex; align-items: center; justify-content: space-between;
-        height: 60px;
+      nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+      .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; color: var(--ink); }
+      .brand img { width: 30px; height: 30px; border-radius: 8px; }
+      .nav-links { display: flex; gap: 26px; font-size: 14px; align-items: center; }
+      .nav-links a { color: var(--body); font-weight: 500; }
+      .nav-cta {
+        background: var(--accent); color: #fff !important; padding: 9px 16px;
+        border-radius: 10px; font-weight: 600;
       }
-      .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
-      .brand img { width: 30px; height: 30px; border-radius: 7px; }
-      .nav-links { display: flex; gap: 22px; font-size: 14px; }
-      .nav-links a { color: var(--muted); }
-      @media (max-width: 640px) { .nav-links { display: none; } }
+      .nav-cta:hover { background: #5a3de0; text-decoration: none; }
+      @media (max-width: 720px) { .nav-links a:not(.nav-cta) { display: none; } }
 
       /* ── hero ── */
       .hero {
-        text-align: center; padding: 80px 0 72px;
-        background: radial-gradient(
-          120% 120% at 50% 0%, var(--bg-soft) 0%, #ffffff 70%
-        );
-        border-top: none;
+        position: relative; overflow: hidden;
+        text-align: center; padding: 48px 0 88px;
+        background:
+          radial-gradient(60% 55% at 50% 0%, rgba(107, 76, 255, 0.10) 0%, transparent 62%),
+          var(--bg);
       }
-      .hero img.mascot {
-        width: 200px; height: 200px;
-        filter: drop-shadow(0 12px 24px rgba(60, 40, 130, 0.18));
-        animation: bob 3.2s ease-in-out infinite;
-      }
-      @keyframes bob {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-10px); }
-      }
+      .hero .hero-copy { position: relative; z-index: 3; }
+      .hero .eyebrow { display: block; }
       .hero h1 {
-        font-size: clamp(30px, 6vw, 48px);
-        margin: 20px 0 10px; letter-spacing: -0.03em;
+        font-size: clamp(34px, 7vw, 60px); line-height: 1.08;
+        margin: 6px 0 18px; letter-spacing: -0.04em; color: var(--ink); font-weight: 850;
+      }
+      .hero h1 .grad {
+        background: linear-gradient(100deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text; background-clip: text; color: transparent;
       }
       .hero p.tagline {
-        font-size: clamp(16px, 2.4vw, 20px);
-        color: var(--muted); margin: 0 auto 28px; max-width: 560px;
+        font-size: clamp(16px, 2.3vw, 21px); color: var(--muted);
+        margin: 0 auto 30px; max-width: 600px;
       }
       .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+      .hero .cta { margin-top: 34px; }
       .btn {
         display: inline-flex; align-items: center; gap: 8px;
-        padding: 13px 22px; border-radius: 12px; font-weight: 600;
-        font-size: 15px; border: 1.5px solid transparent; cursor: pointer;
+        padding: 14px 26px; border-radius: 12px; font-weight: 650;
+        font-size: 15.5px; border: 1.5px solid transparent; cursor: pointer;
       }
-      .btn-primary { background: var(--accent); color: #fff; }
+      .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 8px 20px rgba(107,76,255,0.28); }
       .btn-primary:hover { background: #5a3de0; text-decoration: none; }
-      .btn-ghost {
-        background: #fff; color: var(--accent); border-color: var(--accent-border);
-      }
-      .btn-ghost:hover { border-color: var(--accent); text-decoration: none; }
-      .hero .platforms { margin-top: 16px; font-size: 13px; color: var(--muted); }
+      .btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+      .btn-ghost:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+      .hero .platforms { margin-top: 18px; font-size: 13px; color: var(--muted); }
 
-      /* ── problem callout ── */
+      /* ── living hamlet (hero scene) ── */
+      .hamlet {
+        position: relative; margin: 46px auto 0; max-width: 1000px;
+        /* 배경(hamlet-bg 2400×1792 = 8:6)과 동일 비율로 고정 → background:cover 가
+           상하/좌우 어느 쪽도 크롭하지 않아 배경 전체가 그대로 보인다. 비율이
+           화면폭과 무관하게 고정이라 캐릭터를 % 로 올려둔 위치(.watcher · .vil
+           data-path)도 모든 폭에서 유지된다. */
+        aspect-ratio: 8 / 6;
+        border-radius: 28px; overflow: hidden;
+        border: 1px solid #e6ecf7;
+        background: #dff0e6 url("assets/hamlet-bg.png") center / cover no-repeat;
+        box-shadow: 0 26px 64px rgba(60, 40, 130, 0.13);
+      }
+      @media (max-width: 720px) { .hamlet { border-radius: 22px; } }
+      /* the real photographic background now provides the sky/hills/path/village,
+         so the hand-built scenery layers are hidden (DOM kept for easy revert) */
+      .hamlet .sun, .hamlet .cloud, .hamlet .green, .hamlet .path,
+      .hamlet .house, .hamlet .tree, .hamlet .tuft, .hamlet .vdefs,
+      .watcher .mound { display: none !important; }
+
+      /* sky */
+      .hamlet .sun {
+        position: absolute; top: 18px; right: 9%; width: 70px; height: 70px; z-index: 1;
+        filter: drop-shadow(0 0 24px rgba(255,201,74,0.5));
+        animation: sunGlow 5.5s ease-in-out infinite;
+      }
+      .hamlet .sun svg { display: block; width: 100%; height: 100%; overflow: visible; }
+      .hamlet .sun .rays { transform-origin: 60px 60px; animation: sunSpin 60s linear infinite; }
+      @keyframes sunSpin { to { transform: rotate(360deg); } }
+      @keyframes sunGlow { 0%,100% { filter: drop-shadow(0 0 18px rgba(255,201,74,0.42)); } 50% { filter: drop-shadow(0 0 30px rgba(255,201,74,0.68)); } }
+      .hamlet .cloud { position: absolute; height: 18px; background: #fff; border-radius: 999px; z-index: 1; box-shadow: 0 8px 16px rgba(80,90,140,0.10); }
+      .hamlet .cloud::before, .hamlet .cloud::after { content: ""; position: absolute; bottom: 0; background: #fff; border-radius: 50%; }
+      .hamlet .cloud::before { width: 24px; height: 24px; left: 10px; }
+      .hamlet .cloud::after  { width: 16px; height: 16px; right: 12px; }
+      .hamlet .cloud.cl1 { top: 34px; left: 10%; width: 64px; animation: drift1 30s ease-in-out infinite; }
+      .hamlet .cloud.cl2 { top: 72px; left: 62%; width: 48px; opacity: 0.9; animation: drift2 38s ease-in-out infinite; }
+      @keyframes drift1 { 0%,100% { transform: translateX(-20px); } 50% { transform: translateX(28px); } }
+      @keyframes drift2 { 0%,100% { transform: translateX(24px); } 50% { transform: translateX(-24px); } }
+
+      /* grass field on both sides + a dirt path toward the viewer */
+      .hamlet .vdefs { position: absolute; width: 0; height: 0; }
+      .hamlet .green {
+        position: absolute; left: 0; right: 0; bottom: 0; height: 61%; z-index: 0;
+        background:
+          radial-gradient(120% 70% at 50% 0%, #d7f1d6 0%, rgba(215,241,214,0) 55%),
+          linear-gradient(180deg, #bce7c2 0%, #8fd1a0 100%);
+      }
+      .hamlet .green::before {
+        content: ""; position: absolute; left: 0; right: 0; top: -7px; height: 14px;
+        background: radial-gradient(70% 100% at 50% 100%, #aee2b8, rgba(174,226,184,0) 72%);
+      }
+      .hamlet .path {
+        position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%);
+        width: 58%; height: 60%; z-index: 1;
+        filter: drop-shadow(0 5px 9px rgba(95,70,30,0.12));
+      }
+      .hamlet .path svg { display: block; width: 100%; height: 100%; }
+      .hamlet .tuft { position: absolute; z-index: 1; }
+      .hamlet .tuft svg { display: block; width: 100%; height: auto; }
+      .hamlet .tuft.g1 { left: 15%; bottom: 11%; width: 36px; }
+      .hamlet .tuft.g2 { left: 73%; bottom: 9%;  width: 40px; }
+      .hamlet .tuft.g3 { left: 26%; bottom: 25%; width: 22px; opacity: 0.95; }
+      .hamlet .tuft.g4 { left: 67%; bottom: 29%; width: 20px; opacity: 0.92; }
+      .hamlet .tuft.g5 { left: 88%; bottom: 20%; width: 28px; }
+
+      /* cozy village decor — illustrated to match the characters */
+      .hamlet .house { position: absolute; z-index: 2; }
+      .hamlet .house svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 9px 11px rgba(60,40,90,0.16)); }
+      .hamlet .house.h1 { left: 13%; top: 30%; width: 80px; color: #f1998a; }
+      .hamlet .house.h2 { left: 77%; top: 26%; width: 94px; color: #80b7ea; }
+      .hamlet .tree { position: absolute; z-index: 2; }
+      .hamlet .tree svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 8px 9px rgba(40,80,50,0.18)); }
+      .hamlet .tree.t1 { left: 3%;  top: 37%; width: 56px; }
+      .hamlet .tree.t2 { left: 89%; top: 41%; width: 64px; }
+      .hamlet .tree.t3 { left: 33%; top: 31%; width: 40px; opacity: 0.96; }
+
+      /* villagers — each runs its own 5-min timer, hurrying down the road
+         toward you (real perspective: smaller/back → larger/front) */
+      /* will-change: transform 을 빼는 게 중요. 그게 있으면 .vil 이 GPU 레이어로
+         승격돼 기본 크기로 한 번 래스터된 뒤 scale 로 확대돼, 안의 말풍선 글자가
+         흐릿하게 깨진다. 빼면 매 프레임 실제 배율로 다시 그려져(JS rAF transform)
+         역스케일된 말풍선 글자도 또렷하게 렌더된다. */
+      .vil { position: absolute; left: 0; top: 0; transform-origin: 0 0; opacity: 0; }
+      .hamlet.ready .vil { opacity: 1; }
+      .vil .bc { position: relative; display: inline-block; transform: translate(-50%, -100%); }
+      .vil .bc img { display: block; width: 110px; height: auto; filter: drop-shadow(0 8px 10px rgba(60,40,130,0.22)); }
+      .vil .tmr {
+        position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 4px;
+        display: inline-flex; align-items: center; gap: 4px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px; font-weight: 700; color: #2f9e57;
+        background: #fff; border: 1px solid #d8efe0; border-radius: 999px;
+        padding: 2px 8px; box-shadow: 0 4px 10px rgba(60,40,130,0.10);
+        white-space: nowrap; transition: color 0.3s, border-color 0.3s;
+      }
+      .vil .tmr .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+      .vil .bubble {
+        position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); transform-origin: bottom center; margin-bottom: 26px;
+        opacity: 0; pointer-events: none;
+        background: #ff5670; color: #fff; font-weight: 750; font-size: 11.5px;
+        padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+        box-shadow: 0 6px 16px rgba(255,86,112,0.4); transition: opacity 0.25s;
+      }
+      /* 텍스트가 빈 말풍선은 항상 숨김 (달릴 때 빈 분홍 알약 방지) */
+      .vil .bubble:empty { opacity: 0 !important; }
+      .vil .watch-prop {
+        position: absolute; left: 76%; bottom: 60%; font-size: 18px; line-height: 1;
+        opacity: 0; transform: scale(0.6); transition: opacity 0.3s, transform 0.3s;
+        filter: drop-shadow(0 2px 3px rgba(0,0,0,0.25));
+      }
+
+      /* question card — what the villager just asked Claude + how long the
+         5-min cache window still lasts. JS counter-scales it so it stays a
+         constant, readable size no matter how near/far the villager is. */
+      .vil .qcard {
+        position: absolute; left: 50%; bottom: 100%; margin-bottom: 9px;
+        transform: translateX(-50%); transform-origin: bottom center;
+        width: max-content; max-width: 148px; text-align: left;
+        background: #fff; border: 1px solid #e7e0ff; border-radius: 11px;
+        box-shadow: 0 8px 18px rgba(60, 40, 130, 0.16);
+        padding: 5px 8px 6px;
+      }
+      .vil .qcard::after {
+        content: ""; position: absolute; left: 50%; top: 100%; margin-top: -1px;
+        transform: translateX(-50%);
+        border: 6px solid transparent; border-top-color: #fff;
+      }
+      .vil .qcard .q {
+        font-size: 11px; font-weight: 650; line-height: 1.25; color: #4a3b86;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      }
+      .vil .qcard .q b { color: #7a5cff; font-weight: 800; }
+      .vil .qcard .meta {
+        display: flex; align-items: center; gap: 4px; margin-top: 4px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-weight: 750; font-size: 10.5px; color: #2f9e57; transition: color 0.3s;
+      }
+      .vil .qcard .meta .ic { font-size: 10px; }
+      .vil .qcard .meta .u { font-weight: 650; font-size: 9.5px; color: #8a93a3; }
+      .vil[data-phase="run"] .qcard { border-color: #f6c9d1; }
+      .vil[data-phase="run"] .qcard .meta { color: #e23b54; }
+      .vil[data-phase="hit"] .qcard { border-color: #ddd3ff; }
+      .vil[data-phase="hit"] .qcard .meta { color: #7a5cff; }
+
+      /* 깊이별 점진 정보 공개: 멀리(작게) 있을수록 최소, 앞으로 올수록 풀 카드.
+         data-lod 1 = 가장 뒤(말풍선 없음) · 2 = ⏳ 아이콘만 · 3 = ⏳+타이머 ·
+         4 = 앞(질문+타이머+캐시 유지, 기본). JS 가 d.t 로 단계를 매긴다. */
+      .vil .qcard[data-lod="1"] { display: none; }
+      .vil .qcard[data-lod="2"] .q,
+      .vil .qcard[data-lod="3"] .q { display: none; }
+      .vil .qcard[data-lod="2"] .meta { margin-top: 0; }
+      .vil .qcard[data-lod="2"] .meta .tnum,
+      .vil .qcard[data-lod="2"] .meta .u,
+      .vil .qcard[data-lod="3"] .meta .u { display: none; }
+      .vil .qcard[data-lod="3"] .meta { margin-top: 0; }
+
+      .vil[data-phase="calm"] .bc img { animation: cStroll 3.4s ease-in-out infinite; }
+      @keyframes cStroll { 0%,100% { transform: translate(-3px, 0) rotate(-1.5deg); } 50% { transform: translate(3px, -5px) rotate(1.5deg); } }
+      .vil[data-phase="run"] .tmr { color: #e23b54; border-color: #f6c9d1; }
+      /* most urgent: chaotic, flat-out sprint */
+      .vil[data-phase="run"][data-role="frantic"] .bc img { animation: frantic 0.24s linear infinite; }
+      @keyframes frantic {
+        0%   { transform: translate(-2px, 0)   rotate(-10deg); }
+        25%  { transform: translate(3px, -8px)  rotate(9deg); }
+        50%  { transform: translate(-3px, -1px) rotate(-8deg); }
+        75%  { transform: translate(2px, -9px)  rotate(12deg); }
+        100% { transform: translate(-2px, 0)   rotate(-10deg); }
+      }
+      .vil[data-phase="run"][data-role="frantic"] .bubble { opacity: 1; transform: translateX(-50%) scale(1); }
+      /* second: runs hard while checking the watch */
+      .vil[data-phase="run"][data-role="watch"] .bc img { animation: runSteady 0.34s ease-in-out infinite; }
+      @keyframes runSteady { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-7px) rotate(4deg); } }
+      .vil[data-phase="run"][data-role="watch"] .watch-prop { opacity: 1; transform: scale(1); animation: watchTick 0.5s ease-in-out infinite; }
+      @keyframes watchTick { 0%,100% { transform: scale(1) rotate(-6deg); } 50% { transform: scale(1.08) rotate(6deg); } }
+      .vil[data-phase="hit"] .tmr { color: #7a5cff; border-color: #ddd3ff; }
+      .vil[data-phase="hit"] .bc img { animation: vHop 0.5s ease-out; }
+      .vil[data-phase="hit"] .bubble { opacity: 1; transform: translateX(-50%) scale(1); background: #7a5cff; box-shadow: 0 6px 16px rgba(122,92,255,0.4); }
+      @keyframes vHop { 0% { transform: translateY(0); } 40% { transform: translateY(-22px) scale(1.06); } 100% { transform: translateY(0); } }
+
+      /* .vil.gif: 런 GIF 자체가 다리 모션을 담당하므로 PNG용 흔들기 키프레임은 끈다.
+         (계속 흔드는 cStroll/frantic/runSteady 만 끄고, 캐시히트 점프 vHop 는 유지) */
+      .vil.gif[data-phase="calm"] .bc img,
+      .vil.gif[data-phase="run"] .bc img { animation: none !important; }
+      /* 러너가 2마리 이상이면 assignRoles 가 한쪽에 "watch" 역할을 줘 ⌚(watch-prop)을
+         띄운다. ⌚는 PNG villager 연출용이고 gif 러너(햄스터·병아리)엔 어울리지 않으므로
+         gif 에서는 항상 숨긴다. (PNG villager 재활성 시엔 그대로 동작) */
+      .vil.gif .watch-prop { display: none !important; }
+      /* hamster-run.gif(256² 누끼 루프): 몸이 프레임의 가로 74%·세로 56% 를 채우고
+         발끝이 프레임의 0.777 지점, 머리 top 이 0.219 지점. 정적 PNG 스킨(발끝 0.986)과
+         프레임 점유율·여백이 다르므로 gif 전용으로 폭·접지·말풍선 위치를 따로 보정한다. */
+      .vil.gif .bc img { width: 122px; }
+      /* 하단 ~22% 투명 여백 때문에 '이미지 바닥 = 발끝' 가정이 깨진다. .bc 를 그만큼 내려
+         실제 발끝(0.777)이 data-path 의 hy 좌표에 닿게 보정. */
+      .vil.gif .bc { transform: translate(-50%, -77.7%); }
+      /* 같은 여백 때문에 .bc 상단(프레임 top)은 실제 머리보다 위다. 캐시 말풍선을
+         프레임 top(bottom:100%) 대신 실제 머리 높이(≈78%)로 내려 캐릭터에 바싹 붙인다.
+         (정적 PNG 스킨은 머리가 프레임 top 근처라 기본 bottom:100% 유지) */
+      .vil.gif .bubble { bottom: 78%; margin-bottom: 3px; }
+      /* 정보 카드도 같은 이유로 머리보다 위에 떴다. 머리 높이(≈78%)로 내려 캐릭터에
+         바싹 붙인다. 머리엔 히트 축하 말풍선이 같은 자리에 뜨므로, 카드는 히트 때 숨김
+         (접근 = 질문/타이머 카드, 도착·히트 = 🎉 말풍선) — JS render() 에서 처리. */
+      .vil.gif .qcard { bottom: 78%; margin-bottom: 4px; }
+
+      /* watcher panda — 이 마을의 대장. 전망대(망루) 위에 다리를 내리고 걸터앉아
+         길로 달려오는 villager 들을 지켜보다, 캐시 골든타임이 시작되면 머리 위
+         말풍선으로 "얼른 알려주세요!" 하고 마을 식구들을 재촉한다.
+         발끝(bottom-center)을 전망대 위(84.3%, 35.2%)에 고정 → 끄트머리보다 조금
+         안쪽. 컨테이너 폭과 무관하게 같은 자리. 크기는 강아지(rester)와 비슷한 스케일. */
+      .watcher { position: absolute; left: 84.3%; top: 35.2%; width: 8%; transform: translate(-50%, -100%); z-index: 6; }
+      .watcher .mound { position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%); width: 94px; height: 24px; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #c3ebcb, #9fd8af); z-index: -1; }
+      .watcher img { display: block; width: 100%; height: auto; filter: drop-shadow(0 8px 11px rgba(60,40,130,0.22)); animation: wBob 11s ease-in-out infinite; }
+      /* 까딱임은 거의 멈춘 수준(-1px)·아주 느리게 — 대장답게 진중하게 앉아 있는다 */
+      @keyframes wBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
+      /* 대장의 다독임 말풍선 — 머리 위(top-center)에 띄운다. 꼬리는 아래(머리)를 향함.
+         두 문구("캐시 골든타임이에요!" ↔ "얼른 알려주세요!")가 번갈아 크로스페이드. */
+      .watcher .wbubble {
+        position: absolute; left: 50%; bottom: 100%; margin-bottom: 9px;
+        display: grid; place-items: center; white-space: normal; width: 150px; text-align: center; line-height: 1.34;
+        background: #fff; color: #6b4cff; border: 1px solid #ddd4ff; font-weight: 750; font-size: 12px;
+        padding: 7px 12px; border-radius: 13px; box-shadow: 0 10px 20px rgba(107,76,255,0.20);
+        opacity: 0; transform: translateX(-50%) translateY(5px) scale(0.92); transition: opacity 0.35s, transform 0.35s;
+      }
+      /* 두 문구를 같은 그리드 셀(1/1)에 겹쳐 → 폭은 더 긴 문구에 고정, opacity 로 번갈아 */
+      .watcher .wmsg { grid-area: 1 / 1; }
+      .watcher .wmsg.m1 { opacity: 1; animation: wMsgA 5.4s ease-in-out infinite; }
+      .watcher .wmsg.m2 { opacity: 0; animation: wMsgB 5.4s ease-in-out infinite; }
+      @keyframes wMsgA { 0%,42% { opacity: 1; } 50%,92% { opacity: 0; } 100% { opacity: 1; } }
+      @keyframes wMsgB { 0%,42% { opacity: 0; } 50%,92% { opacity: 1; } 100% { opacity: 0; } }
+      .watcher .wbubble::before { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #ddd4ff; }
+      .watcher .wbubble::after  { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: -1.5px; border: 5px solid transparent; border-top-color: #fff; }
+      .hamlet[data-alarm="on"] .watcher .wbubble { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+      .hamlet[data-alarm="on"] .watcher img { animation: wPoint 3.6s ease-in-out infinite; }
+      /* 알람 때도 과하지 않게 살짝 끄덕이는 정도 */
+      @keyframes wPoint { 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-2px) rotate(-1.5deg); } }
+
+      /* resting shiba — 좌측 풀밭에 누워 막 시작된 5분 캐시 타이머를 느긋하게
+         지켜본다. 발끝(bottom-center)을 hx/hy(0.057,0.646)에 고정해 villager와
+         동일한 좌표계로 길 위 햄스터와 원근을 맞춘다 */
+      .rester { position: absolute; left: 9.7%; top: 65.4%; width: 11.7%; transform: translate(-50%, -100%); z-index: 5; }
+      .rester > img {
+        display: block; width: 100%; height: auto; position: relative;
+        /* 반시계로 5도 살짝 기울임. 발 쪽(아래)을 축으로 돌려 바닥에 붙은 채 기운다.
+           rBob/rHop 키프레임에도 -5deg 를 박아 애니메이션 중에도 유지되고, 아래 transform
+           은 모션이 꺼졌을 때(reduced-motion)의 폴백이다. */
+        transform-origin: 50% 88%;
+        transform: rotate(-5deg);
+        /* 해가 우상단 → 형태 그림자는 좌하단·풀색 톤. 붕 뜬 느낌이 안 들도록 진하게 */
+        filter: drop-shadow(-1px 4px 5px rgba(38,62,38,0.45));
+        animation: rBob 5.2s ease-in-out infinite;
+      }
+      /* 풀밭 접지(드리운) 그림자 — 2-stop 타원: 무게 실린 안쪽 코어 + 넓고 옅은 헤일로.
+         해 반대편(좌하단)으로 늘어지고 까딱임과 무관하게 바닥에 고정 → grounding 효과.
+         코어를 진하고 또렷하게 깔아 풀밭에 확실히 내려앉은 무게감을 준다 */
+      .rester::after {
+        content: ""; position: absolute; z-index: -1;
+        left: -6%; bottom: 7%; width: 112%; height: 28%;
+        background:
+          radial-gradient(42% 48% at 50% 52%, rgba(20,44,22,0.70), rgba(20,44,22,0) 67%),
+          radial-gradient(74% 66% at 50% 56%, rgba(30,58,32,0.36), rgba(30,58,32,0) 82%);
+        border-radius: 50%; filter: blur(2px);
+      }
+      /* 몸이 풀에 폭 잠긴 안쪽 포켓 — 접지 그림자보다 살짝 위로 올려 몸 아래 끝선과 겹치고,
+         z-index:-1 로 몸 뒤에 깔아 풀이 강아지를 감싸 안은 듯한 "언덕에 파묻힘" 음영을 만든다 */
+      .rester::before {
+        content: ""; position: absolute; z-index: -1;
+        left: 5%; bottom: 11%; width: 90%; height: 27%;
+        background: radial-gradient(50% 56% at 50% 44%, rgba(18,42,22,0.44), rgba(18,42,22,0) 70%);
+        border-radius: 50%; filter: blur(4px);
+      }
+      @keyframes rBob { 0%,100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-2px) rotate(-5.5deg); } }
+      .rester .rbubble {
+        position: absolute; left: 42%; bottom: 100%; margin-bottom: 1px; transform: translateX(-50%);
+        display: inline-flex; align-items: center;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px; font-weight: 700; color: #2f9e57;
+        background: #fff; border: 1px solid #d8efe0; border-radius: 999px;
+        padding: 2px 7px; box-shadow: 0 4px 9px rgba(60,40,130,0.13);
+        white-space: nowrap; transition: background 0.2s, border-color 0.2s, color 0.2s;
+      }
+      .rester .rtimer { display: inline-flex; align-items: center; gap: 3px; }
+      .rester .rhit { display: none; align-items: center; gap: 3px; }
+      /* 캐시 히트 순간(3:00 도달): 타이머 → 축하 말풍선 전환 + 살짝 점프, 곧 5:00 리셋 */
+      .rester.hit .rtimer { display: none; }
+      .rester.hit .rhit { display: inline-flex; }
+      .rester.hit .rbubble { color: #fff; background: #7a5cff; border-color: #7a5cff; box-shadow: 0 4px 12px rgba(122,92,255,0.4); }
+      .rester.hit > img { animation: rHop 0.6s ease-out; }
+      @keyframes rHop { 0% { transform: translateY(0) rotate(-5deg); } 40% { transform: translateY(-9px) scale(1.05) rotate(-5deg); } 100% { transform: translateY(0) rotate(-5deg); } }
+      @media (prefers-reduced-motion: reduce) { .rester > img { animation: none !important; } }
+
+      .hamlet-cap { text-align: center; margin: 18px auto 0; max-width: 580px; color: var(--muted); font-size: 14px; }
+      @media (max-width: 560px) {
+        .hamlet .house.h1, .hamlet .tree.t3 { display: none; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .hamlet .sun, .hamlet .cloud, .watcher img, .watcher .wmsg, .vil .bc img, .vil .watch-prop { animation: none !important; }
+      }
+
+      /* 좌표 헬퍼(개발용): URL 에 ?coords 붙이면 켜짐. 격자 + 마우스 %좌표 + 클릭 복사 */
+      .hamlet .coordgrid { display: none; position: absolute; inset: 0; z-index: 50; pointer-events: none;
+        background-image:
+          repeating-linear-gradient(to right, rgba(255,0,90,.40) 0 1px, transparent 1px 10%),
+          repeating-linear-gradient(to bottom, rgba(255,0,90,.40) 0 1px, transparent 1px 10%); }
+      .hamlet .coordgrid .coordlab { position: absolute; font: 700 10px ui-monospace, monospace; color: #c1003a; }
+      .hamlet .coordread { display: none; position: absolute; z-index: 51; pointer-events: none;
+        left: 0; top: 0; transform: translate(12px, 12px); white-space: nowrap;
+        background: #111; color: #34f5a0; font: 700 12px ui-monospace, monospace; padding: 3px 7px; border-radius: 6px; }
+      .hamlet.coords .coordgrid, .hamlet.coords .coordread { display: block; }
+      .hamlet.coords { cursor: crosshair; }
+
+      /* ── problem ── */
+      .problem { background: var(--bg-soft); }
+      /* 글(.prose-facts) 위 · 이미지(.burn) 아래로 세로 스택. 한 컬럼 그리드라
+         DOM 순서대로 쌓이고, 760px 로 묶어 가운데 정렬(가독 폭 + 도식 라벨 선명). */
+      .problem .pcols { display: grid; gap: 32px; }
+      @media (max-width: 820px) { .problem .pcols { gap: 24px; } }
       .callout {
-        background: var(--accent-soft); border: 1px solid var(--accent-border);
-        border-radius: var(--radius); padding: 20px 24px; margin: 24px 0;
+        background: var(--accent-soft); border: 1px solid rgba(139,107,255,0.3);
+        border-radius: 14px; padding: 16px 20px; margin-top: 20px; color: var(--ink);
       }
       .callout strong { color: var(--accent); }
 
+      /* ── token-burn comparison (problem) ── */
+      .burn {
+        background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+        padding: 20px 22px; box-shadow: var(--shadow);
+      }
+      .burn-row { border-radius: 13px; padding: 13px 14px; }
+      .burn-row + .burn-row { margin-top: 12px; }
+      .burn-row.miss { background: rgba(226, 59, 84, 0.06); border: 1px solid rgba(226, 59, 84, 0.18); }
+      .burn-row.hit  { background: var(--accent-soft); border: 1px solid rgba(122, 92, 255, 0.22); }
+      .burn-head {
+        display: flex; align-items: baseline; justify-content: space-between;
+        gap: 10px; margin-bottom: 10px;
+      }
+      .burn-label { font-size: 13.5px; font-weight: 700; color: var(--body); }
+      .burn-cost {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-weight: 800; font-size: 15px; white-space: nowrap;
+      }
+      .burn-row.miss .burn-cost { color: #e23b54; }
+      .burn-row.hit .burn-cost { color: var(--accent); }
+      .coins { display: flex; flex-wrap: wrap; gap: 6px; }
+      .coins i {
+        width: 21px; height: 21px; border-radius: 50%;
+        background: radial-gradient(circle at 35% 28%, #ffe48f, #f3b100);
+        box-shadow: inset 0 -2px 3px rgba(150, 95, 0, 0.35), 0 2px 4px rgba(120, 80, 0, 0.16);
+      }
+      .burn-foot {
+        display: flex; align-items: center; gap: 14px;
+        margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--line);
+      }
+      .burn-foot img { width: 54px; height: auto; flex: 0 0 54px; }
+      .burn-foot p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+
       /* ── feature grid ── */
-      .grid {
-        display: grid; gap: 18px;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      }
+      .grid-feat { display: grid; gap: 18px; grid-template-columns: repeat(3, 1fr); }
+      @media (max-width: 820px) { .grid-feat { grid-template-columns: repeat(2, 1fr); } }
+      @media (max-width: 540px) { .grid-feat { grid-template-columns: 1fr; } }
       .card {
-        background: var(--card); border: 1px solid #ece8f8;
-        border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow);
+        background: var(--card, #fff); border: 1px solid var(--line);
+        border-radius: var(--radius); padding: 26px 24px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
       }
-      .card .ico { font-size: 26px; }
-      .card h3 { margin: 10px 0 6px; font-size: 17px; }
+      .card:hover { transform: translateY(-3px); box-shadow: var(--shadow), 0 0 30px rgba(139,107,255,0.12); border-color: var(--accent); }
+      .card .ico {
+        width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center;
+        background: var(--accent-soft); font-size: 24px; margin-bottom: 14px;
+      }
+      .card h3 { margin: 0 0 6px; font-size: 17px; color: var(--ink); }
       .card p { margin: 0; color: var(--muted); font-size: 14.5px; }
 
       /* ── steps ── */
-      .steps { display: grid; gap: 16px; counter-reset: step; }
+      .steps { display: grid; gap: 14px; }
       .step {
-        display: flex; gap: 16px; align-items: flex-start;
-        background: var(--bg-soft); border-radius: var(--radius); padding: 18px 20px;
+        display: flex; gap: 18px; align-items: flex-start;
+        border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px;
       }
       .step .num {
-        flex: 0 0 32px; width: 32px; height: 32px; border-radius: 50%;
-        background: var(--accent); color: #fff; font-weight: 700;
+        flex: 0 0 34px; width: 34px; height: 34px; border-radius: 10px;
+        background: var(--accent); color: #fff; font-weight: 800;
         display: grid; place-items: center; font-size: 15px;
       }
-      .step h3 { margin: 2px 0 4px; font-size: 16px; }
+      .step h3 { margin: 3px 0 4px; font-size: 16.5px; color: var(--ink); }
       .step p { margin: 0; color: var(--muted); font-size: 14.5px; }
-      .step code {
-        background: #efe9ff; padding: 1px 6px; border-radius: 5px;
-        font-size: 13px; color: #5a3de0;
-      }
+      .step code { background: var(--accent-soft); padding: 1px 6px; border-radius: 5px; font-size: 13px; color: var(--accent); }
 
       /* ── character states ── */
-      .states {
-        display: grid; gap: 8px;
-        grid-template-columns: repeat(6, 1fr);
-      }
+      .states { display: grid; gap: 10px; grid-template-columns: repeat(6, 1fr); }
       @media (max-width: 720px) { .states { grid-template-columns: repeat(3, 1fr); } }
       .state { text-align: center; }
-      .state img { width: 100%; max-width: 110px; height: auto; }
+      .state img { width: 100%; max-width: 116px; height: auto; }
       .state span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 
       /* ── tray modes ── */
-      .modes { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-      .mode {
-        border: 1px solid #ece8f8; border-radius: var(--radius); padding: 18px 20px;
-      }
+      .modes { display: grid; gap: 16px; grid-template-columns: repeat(3, 1fr); }
+      @media (max-width: 820px) { .modes { grid-template-columns: 1fr; } }
+      .mode { border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px; }
       .mode .pill {
         display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        background: #1d1730; color: #c9beff; padding: 6px 12px; border-radius: 8px;
-        font-size: 13px; margin-bottom: 10px;
+        background: var(--accent-soft); color: var(--accent); padding: 7px 13px; border-radius: 9px;
+        border: 1px solid var(--line); font-size: 13px; margin-bottom: 12px;
       }
-      .mode p { margin: 0; color: var(--muted); font-size: 14px; }
+      .mode p { margin: 0; color: var(--muted); font-size: 14.5px; }
+      .mode b { color: var(--ink); }
 
-      /* ── screenshot placeholder ── */
-      figure { margin: 24px 0 0; }
+      /* ── provider chips ── */
+      .providers { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+      .pchip {
+        display: inline-flex; align-items: center; gap: 8px;
+        border: 1.5px solid var(--line); border-radius: 12px; padding: 11px 18px;
+        font-weight: 650; color: var(--body);
+      }
+      .pchip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
+      /* ── screenshot drop-in ── */
+      figure { margin: 32px 0 0; }
       .shot {
-        border: 2px dashed var(--accent-border); border-radius: var(--radius);
-        background: var(--bg-soft);
-        min-height: 220px; display: grid; place-items: center;
-        color: var(--muted); text-align: center; padding: 24px;
+        border: 2px dashed var(--line); border-radius: var(--radius); background: var(--card);
+        min-height: 240px; display: grid; place-items: center;
+        color: var(--muted); text-align: center; padding: 28px;
       }
       .shot .tag {
         font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
@@ -183,31 +545,471 @@
       .shot .fname {
         display: inline-block; margin-top: 10px;
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 13px; background: #efe9ff; color: #5a3de0;
-        padding: 4px 10px; border-radius: 8px;
+        font-size: 13px; background: var(--accent-soft); color: var(--accent); padding: 4px 10px; border-radius: 8px;
       }
       .shot .hint { font-size: 12.5px; margin-top: 6px; opacity: 0.8; }
       figure img.real {
-        width: 100%; border-radius: var(--radius); border: 1px solid #ece8f8;
+        width: 100%; border-radius: var(--radius); border: 1px solid var(--line);
         box-shadow: var(--shadow); display: block;
       }
-      figcaption { color: var(--muted); font-size: 13px; margin-top: 8px; text-align: center; }
+      figcaption { color: var(--muted); font-size: 13px; margin-top: 10px; text-align: center; }
+
+      /* ── closing CTA ── */
+      .final {
+        text-align: center;
+        background: linear-gradient(135deg, #1c1430 0%, #3a2a7a 100%);
+        color: #fff; border: none;
+      }
+      .final h2 { color: #fff; }
+      .final p { color: #cdc4ec; max-width: 520px; margin: 0 auto 28px; font-size: 17px; }
+      .final .btn-primary { background: #fff; color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+      .final .btn-primary:hover { background: #f1edff; }
+      .final .btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,0.4); }
+      .final .btn-ghost:hover { border-color: #fff; color: #fff; }
+      .final .platforms { color: #b3acc8; margin-top: 18px; font-size: 13px; }
+
+      /* ── single timer demo (one cycle) ── */
+      .village-sec { background: var(--bg-soft); }
+      .village {
+        position: relative; margin-top: 36px; border: 1px solid var(--line);
+        border-radius: 24px; overflow: hidden; min-height: 300px;
+        display: grid; place-items: center;
+        background:
+          radial-gradient(120% 90% at 50% -10%, rgba(107,76,255,0.10), transparent 60%),
+          linear-gradient(180deg, #fbfaff, var(--card));
+      }
+      .village::after {
+        content: ""; position: absolute; inset: 0; pointer-events: none;
+        opacity: 0; transition: opacity 0.5s ease;
+        background: radial-gradient(90% 70% at 50% 115%, rgba(255,86,86,0.18), transparent 70%);
+      }
+      .village[data-phase="urgent"]::after { opacity: 1; }
+      .village[data-phase="hit"]::after {
+        opacity: 1;
+        background: radial-gradient(90% 85% at 50% 50%, rgba(255,213,79,0.24), transparent 70%);
+      }
+
+      .timer-hud { position: relative; z-index: 3; text-align: center; padding: 12px 0; }
+      .timer-hud .ring { width: 116px; height: 116px; margin: 0 auto; position: relative; }
+      .timer-hud svg { width: 116px; height: 116px; transform: rotate(-90deg); }
+      .timer-hud .track { fill: none; stroke: var(--line); stroke-width: 9; }
+      .timer-hud .prog {
+        fill: none; stroke: var(--accent); stroke-width: 9; stroke-linecap: round;
+        transition: stroke 0.4s ease;
+      }
+      .timer-hud .clock {
+        position: absolute; inset: 0; display: grid; place-items: center;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 27px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em;
+      }
+      .phase-label { margin-top: 12px; font-weight: 700; color: var(--accent); font-size: 15px; transition: color 0.4s ease; }
+      .village[data-phase="urgent"] .prog { stroke: #ff5656; }
+      .village[data-phase="urgent"] .phase-label { color: #f24d63; }
+      .village[data-phase="hit"] .prog { stroke: #f0b400; }
+      .village[data-phase="hit"] .phase-label { color: #c89400; }
+
+      .village-shout {
+        position: absolute; top: 16px; left: 50%; z-index: 4;
+        transform: translateX(-50%) scale(0.9); opacity: 0;
+        background: #ff5656; color: #fff; font-weight: 750; font-size: 14px;
+        padding: 8px 16px; border-radius: 999px; white-space: nowrap;
+        box-shadow: 0 8px 22px rgba(255,86,86,0.45);
+        transition: opacity 0.25s ease, transform 0.25s ease;
+      }
+      .village[data-phase="urgent"] .village-shout { opacity: 1; animation: shoutPulse 0.5s ease-in-out infinite; }
+      @keyframes shoutPulse { 0%,100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.07); } }
+
+      .confetti { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
+      .confetti i { position: absolute; top: -14px; width: 9px; height: 14px; border-radius: 2px; opacity: 0.95; animation: drop 1.15s ease-in forwards; }
+      @keyframes drop { to { transform: translateY(440px) rotate(420deg); opacity: 0; } }
+
+      .village-note { margin-top: 16px; color: var(--muted); font-size: 13.5px; }
+      @media (prefers-reduced-motion: reduce) { .village-shout { animation: none !important; } }
+
+      /* ── footer ── */
+      footer { text-align: center; padding: 44px 0; color: var(--muted); font-size: 14px; background: var(--bg); }
+      footer a { color: var(--muted); }
+
+      /* ===== compare-light sections — ported from _archive/_compare-light.20260601.html ===== */
+      /* ── problem ── */
+      .problem { background: var(--bg-soft); }
+      /* 글(.prose-facts) 위 · 이미지(.burn) 아래로 세로 스택. 한 컬럼 그리드라
+         DOM 순서대로 쌓이고, 760px 로 묶어 가운데 정렬(가독 폭 + 도식 라벨 선명). */
+      .problem .pcols { display: grid; gap: 32px; }
+      @media (max-width: 820px) { .problem .pcols { gap: 24px; } }
+      .prose-facts { display: grid; gap: 26px; align-content: start; max-width: 744px; padding-left: 24px; }
+      .prose-facts .pf { margin: 0; font-size: 16.5px; color: var(--body); line-height: 1.7; }
+      .prose-facts .pf b { color: var(--ink); }
+      .prose-facts .src { margin: 5px 0 0; font-size: 12.5px; color: var(--muted); }
+      .prose-facts .src a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+      .prose-facts .src a:hover { color: var(--accent); }
+
+      /* ── token-burn comparison ── */
+      .burn {
+        background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+        padding: 20px 22px; box-shadow: var(--shadow);
+      }
+      .burn-row { border-radius: 13px; padding: 13px 14px; }
+      .burn-row + .burn-row { margin-top: 12px; }
+      .burn-row.miss { background: rgba(226, 59, 84, 0.06); border: 1px solid rgba(226, 59, 84, 0.18); }
+      .burn-row.hit  { background: var(--accent-soft); border: 1px solid rgba(122, 92, 255, 0.22); }
+      .burn-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+      .burn-label { font-size: 13.5px; font-weight: 700; color: var(--body); }
+      .burn-cost { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 800; font-size: 15px; white-space: nowrap; }
+      .burn-row.miss .burn-cost { color: #e23b54; }
+      .burn-row.hit .burn-cost { color: var(--accent); }
+      .coins { display: flex; flex-wrap: wrap; gap: 6px; }
+      .coins i {
+        width: 21px; height: 21px; border-radius: 50%;
+        background: radial-gradient(circle at 35% 28%, #ffe48f, #f3b100);
+        box-shadow: inset 0 -2px 3px rgba(150, 95, 0, 0.35), 0 2px 4px rgba(120, 80, 0, 0.16);
+      }
+      .burn-foot { display: flex; align-items: center; gap: 14px; margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--line); }
+      .burn-foot img { width: 54px; height: auto; flex: 0 0 54px; }
+      .burn-foot p { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+      .callout {
+        background: var(--accent-soft); border: 1px solid rgba(139,107,255,0.3);
+        border-radius: 14px; padding: 16px 20px; margin-top: 20px; color: var(--ink);
+      }
+      .callout strong { color: var(--accent); }
+
+      /* ── feature grid ── */
+      .grid-feat { display: grid; gap: 18px; grid-template-columns: repeat(3, 1fr); }
+      @media (max-width: 820px) { .grid-feat { grid-template-columns: repeat(2, 1fr); } }
+      @media (max-width: 540px) { .grid-feat { grid-template-columns: 1fr; } }
+      .card {
+        background: var(--card, #fff); border: 1px solid var(--line);
+        border-radius: var(--radius); padding: 26px 24px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+      }
+      .card:hover { transform: translateY(-3px); box-shadow: var(--shadow), 0 0 30px rgba(139,107,255,0.12); border-color: var(--accent); }
+      .card .ico {
+        width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center;
+        background: var(--accent-soft); font-size: 24px; margin-bottom: 14px;
+      }
+      .card h3 { margin: 0 0 6px; font-size: 17px; color: var(--ink); }
+      .card p { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+      /* ── steps ── */
+      .steps { display: grid; gap: 14px; }
+      .step {
+        display: flex; gap: 18px; align-items: flex-start;
+        border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px;
+      }
+      .step .num {
+        flex: 0 0 34px; width: 34px; height: 34px; border-radius: 10px;
+        background: var(--accent); color: #fff; font-weight: 800;
+        display: grid; place-items: center; font-size: 15px;
+      }
+      .step h3 { margin: 3px 0 4px; font-size: 16.5px; color: var(--ink); }
+      .step p { margin: 0; color: var(--muted); font-size: 14.5px; }
+      .step code { background: var(--accent-soft); padding: 1px 6px; border-radius: 5px; font-size: 13px; color: var(--accent-2); }
+
+      /* ── character states ── */
+      .states { display: grid; gap: 10px; grid-template-columns: repeat(6, 1fr); }
+      @media (max-width: 720px) { .states { grid-template-columns: repeat(3, 1fr); } }
+      .state { text-align: center; }
+      .state img { width: 100%; max-width: 116px; height: auto; }
+      .state span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+      /* ── tray modes ── */
+      .modes { display: grid; gap: 16px; grid-template-columns: repeat(3, 1fr); }
+      @media (max-width: 820px) { .modes { grid-template-columns: 1fr; } }
+      .mode { border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px; }
+      .mode .pill {
+        display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: var(--card-2); color: #c9beff; padding: 7px 13px; border-radius: 9px;
+        border: 1px solid var(--line); font-size: 13px; margin-bottom: 12px;
+      }
+      .mode p { margin: 0; color: var(--muted); font-size: 14.5px; }
+      .mode b { color: var(--ink); }
 
       /* ── provider chips ── */
-      .providers { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+      .providers { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
       .pchip {
         display: inline-flex; align-items: center; gap: 8px;
-        border: 1.5px solid var(--accent-border); border-radius: 12px;
-        padding: 10px 16px; font-weight: 600;
+        border: 1.5px solid var(--line); border-radius: 12px; padding: 11px 18px;
+        font-weight: 650; color: var(--body);
       }
       .pchip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 
-      /* ── footer ── */
-      footer {
-        text-align: center; padding: 48px 0; color: var(--muted); font-size: 14px;
-        border-top: 1px solid #efecf8;
+      /* ── screenshot drop-in ── */
+      figure { margin: 32px 0 0; }
+      .shot {
+        border: 2px dashed var(--line); border-radius: var(--radius); background: var(--card);
+        min-height: 240px; display: grid; place-items: center;
+        color: var(--muted); text-align: center; padding: 28px;
       }
+      .shot .tag {
+        font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+        background: var(--accent); color: #fff; padding: 3px 10px; border-radius: 20px;
+        display: inline-block; margin-bottom: 8px;
+      }
+      .shot .fname {
+        display: inline-block; margin-top: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 13px; background: var(--accent-soft); color: var(--accent-2); padding: 4px 10px; border-radius: 8px;
+      }
+      .shot .hint { font-size: 12.5px; margin-top: 6px; opacity: 0.8; }
+      figure img.real {
+        width: 100%; border-radius: var(--radius); border: 1px solid var(--line);
+        box-shadow: var(--shadow); display: block;
+      }
+      figcaption { color: var(--muted); font-size: 13px; margin-top: 10px; text-align: center; }
+
+      /* ── closing CTA ── */
+      .final {
+        text-align: center;
+        background: linear-gradient(135deg, #1c1430 0%, #3a2a7a 100%);
+        color: #fff; border: none;
+      }
+      .final h2 { color: #fff; }
+      .final p { color: #cdc4ec; max-width: 520px; margin: 0 auto 28px; font-size: 17px; }
+      .final .btn-primary { background: #fff; color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+      .final .btn-primary:hover { background: #f1edff; }
+      .final .btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,0.4); }
+      .final .btn-ghost:hover { border-color: #fff; color: #fff; }
+      .final .platforms { color: #b3acc8; margin-top: 18px; font-size: 13px; }
+
+      /* ── timer village ── */
+      .village-sec { background: var(--bg-soft); }
+      /* timeline explainer (보냄 → 캐시 살아있음 → 1분 남음 → 만료) */
+      .tline { margin-top: 48px; max-width: 760px; }
+      .tl-playhead { position: relative; height: 42px; }
+      .tl-playhead .tl-coin {
+        position: absolute; bottom: 0; left: 0; transform: translateX(-50%);
+        font-size: 30px; line-height: 1; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.22));
+        animation: tlRun 7s cubic-bezier(.45,.05,.55,.95) infinite;
+      }
+      @keyframes tlRun {
+        0% { left: 0%; }
+        76% { left: 80%; }
+        90%, 100% { left: 100%; }
+      }
+      .tl-track {
+        position: relative; height: 16px; border-radius: 999px; overflow: hidden;
+        display: flex; box-shadow: inset 0 1px 4px rgba(40,24,90,0.12);
+      }
+      .tl-zone { height: 100%; }
+      .tl-zone.golden { flex: 0 0 80%; background: linear-gradient(90deg, #34d399, #22c19a); }
+      .tl-zone.danger { flex: 1; background: linear-gradient(90deg, #ffb020, #ff5656); }
+      .tl-marks { position: relative; height: 52px; margin-top: 12px; }
+      .tl-mark { position: absolute; top: 0; transform: translateX(-50%); text-align: center; }
+      .tl-mark b { display: block; font-size: 13px; color: var(--ink); font-weight: 700; white-space: nowrap; }
+      .tl-mark i {
+        display: block; font-style: normal; font-size: 12px; color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; margin-top: 3px;
+      }
+      .tl-mark .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+      .tl-mark.start { left: 0; transform: translateX(0); text-align: left; }
+      .tl-mark.warn { left: 80%; }
+      .tl-mark.end { left: 100%; transform: translateX(-100%); text-align: right; }
+      .tl-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 38px; }
+      .tl-legend .lg {
+        display: inline-flex; align-items: center; gap: 6px;
+        border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px;
+        font-size: 13px; color: var(--muted); background: var(--card);
+      }
+      .tl-legend .lg b { color: var(--ink); font-weight: 650; }
+      .village-note { margin-top: 24px; color: var(--muted); font-size: 13.5px; }
+      @media (max-width: 560px) { .tl-mark b { font-size: 12px; } }
+      @media (prefers-reduced-motion: reduce) { .tl-playhead .tl-coin { animation: none; } }
+
+      /* ── menubar mockup + remaining gauges ── */
+      .mbar-demo { margin-top: 40px; max-width: 720px; }
+      .mbar {
+        display: flex; align-items: center; gap: 16px; height: 46px; padding: 0 16px;
+        background: linear-gradient(180deg, #272040, #181228);
+        border: 1px solid #3a3358; border-radius: 13px;
+        color: #e9e4ff; font-size: 14px; font-weight: 600; box-shadow: var(--shadow);
+      }
+      .mbar .mb-brand { font-size: 16px; }
+      .mbar .mb-menu { color: #b8b0d8; font-weight: 500; font-size: 13.5px; }
+      @media (max-width: 560px) { .mbar .mb-menu { display: none; } }
+      .mbar .mb-token {
+        margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 750; font-size: 13.5px;
+        color: #fff; background: rgba(122,92,255,0.30);
+        border: 1px solid rgba(155,128,255,0.6); border-radius: 8px; padding: 4px 10px;
+        box-shadow: 0 0 0 3px rgba(122,92,255,0.16);
+      }
+      .mbar .mb-sys { color: #cfc8ec; font-size: 13px; }
+      .mbar .mb-time { color: #e9e4ff; font-variant-numeric: tabular-nums; }
+      .mbar-cap { margin-top: 12px; color: var(--muted); font-size: 13.5px; }
+      /* ── two-signal "show" cards (메뉴바 숫자 + 머리 위 말풍선) ── */
+      .show2 { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 8px; max-width: 760px; }
+      .show-card {
+        display: flex; flex-direction: column;
+        border: 1px solid var(--line); border-radius: var(--radius);
+        background: var(--card); padding: 22px 22px 24px; box-shadow: var(--shadow);
+      }
+      .show-card .show-h { margin: 20px 0 6px; font-size: 17px; color: var(--ink); }
+      .show-card .show-p { margin: 0; color: var(--muted); font-size: 14.5px; }
+      .screenbox {
+        height: 188px; max-width: 760px; border-radius: 14px; padding: 14px;
+        background: linear-gradient(160deg, #efeaff, #f8f6ff);
+        border: 1px solid var(--line); display: flex; align-items: flex-start;
+      }
+      .screenbox .mbar { width: 100%; margin: 0; }
+      /* menubar token chip — 표시 모드 세로 스크롤 (5h → 5h 주간 → 5h 주간 $) */
+      .mb-roll { display: inline-block; height: 1.4em; line-height: 1.4em; overflow: hidden; vertical-align: middle; }
+      .mb-rollinner { display: block; animation: mbRoll 7s ease-in-out infinite; }
+      .mb-line { display: block; height: 1.4em; line-height: 1.4em; white-space: nowrap; }
+      @keyframes mbRoll {
+        0%, 22%   { transform: translateY(0); }
+        28%, 47%  { transform: translateY(-1.4em); }
+        53%, 72%  { transform: translateY(-2.8em); }
+        78%, 100% { transform: translateY(-4.2em); }
+      }
+      @media (prefers-reduced-motion: reduce) { .mb-rollinner { animation: none; } }
+      .petbox {
+        position: relative; height: 188px; border-radius: 14px;
+        display: flex; align-items: flex-end; justify-content: center;
+        background: radial-gradient(72% 60% at 50% 100%, rgba(139,107,255,0.12), transparent 70%);
+        border: 1px solid var(--line);
+      }
+      .petbox.solo { max-width: 300px; height: 200px; margin: 38px auto 0; }
+      .petbox .pet {
+        width: 120px; height: auto; margin-bottom: 6px;
+        filter: drop-shadow(0 10px 18px rgba(60,40,130,0.22));
+        animation: bob 3.4s ease-in-out infinite;
+      }
+      .petbox .cbubble {
+        position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+        display: inline-flex; align-items: center; gap: 9px;
+        background: #fff; border: 1px solid var(--line); border-radius: 14px;
+        padding: 7px 14px 7px 9px; box-shadow: 0 10px 24px rgba(60,40,130,0.18);
+        animation: bubbleFloat 2.6s ease-in-out infinite;
+      }
+      .petbox .cbubble::after {
+        content: ""; position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%);
+        border: 8px solid transparent; border-top-color: #fff; border-bottom: 0;
+      }
+      .petbox .ctimer { position: relative; width: 30px; height: 30px; flex: 0 0 30px; }
+      .petbox .ctimer svg { width: 30px; height: 30px; transform: rotate(-90deg); display: block; }
+      .petbox .ct-track { fill: none; stroke: var(--accent-soft); stroke-width: 5; }
+      .petbox .ct-prog { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; }
+      .petbox .ct-num {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-weight: 800; font-size: 15px; color: var(--ink);
+        letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+      }
+      @keyframes bubbleFloat {
+        0%,100% { transform: translateX(-50%) translateY(0); }
+        50% { transform: translateX(-50%) translateY(-6px); }
+      }
+      @media (prefers-reduced-motion: reduce) { .petbox .pet, .petbox .cbubble { animation: none; } }
+
+      /* ── character pick (여러 캐릭터) ── */
+      .charpick { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+      @media (max-width: 720px) { .charpick { grid-template-columns: repeat(3, 1fr); } }
+      .chip-c {
+        margin: 0; text-align: center; padding: 22px 10px 16px;
+        border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+        transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+      }
+      .chip-c:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: var(--shadow); }
+      .chip-c img { width: 100%; max-width: 80px; height: auto; }
+      .chip-c figcaption { margin-top: 8px; font-size: 13px; color: var(--body); font-weight: 650; }
+
+      /* ── footer ── */
+      footer { text-align: center; padding: 44px 0; color: var(--muted); font-size: 14px; background: var(--bg); }
       footer a { color: var(--muted); }
+
+      /* ── prompt-cache 결정 흐름 (다중 요청 · HIT / MISS) ──────────────────
+         공식 문서 동작을 시각화: 요청마다 접두사가 캐시에 있는지 확인 →
+         있으면(HIT) 캐시 재사용(×1), 없으면(MISS) 전체 처리 후 접두사 캐싱(×10).
+         작은 JS 상태머신이 .cacheflow 의 data-verdict·요청번호·TTL·로그를 스텝마다
+         갱신한다. 래스터 GIF 대신 인라인 SVG 라 라벨이 선명하고 안 깨진다. */
+      .cacheflow { margin: 0; }
+      .cacheflow svg { width: 100%; height: auto; display: block; }
+      .cf-cap { margin: 12px 2px 0; font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+      .cf-cap b { color: var(--ink); font-weight: 700; }
+      .cf-cap .w { color: #d8324b; }
+      .cf-cap .r { color: #0f9d6f; }
+      /* 존: 위=프롬프트 캐시(체이닝으로 누적) / 아래=대화창 */
+      .cf-zone { fill: var(--card); stroke: var(--line); stroke-width: 1.5; }
+      .cf-zone.cache { fill: var(--bg-soft); }
+      .cf-zone-t { fill: var(--muted); font-size: 11.5px; font-weight: 700; }
+      .cf-note { fill: var(--muted); font-size: 10.5px; }
+
+      /* 판정 배지 */
+      .cf-vpill { fill: var(--card-2); stroke: var(--line); stroke-width: 1.2; transition: fill 0.25s, stroke 0.25s; }
+      .cf-verdict { font-size: 13px; font-weight: 800; text-anchor: middle; fill: var(--body); transition: fill 0.25s; }
+      .cacheflow[data-verdict="miss"] .cf-vpill { fill: rgba(107, 76, 255, 0.1); stroke: rgba(107, 76, 255, 0.4); }
+      .cacheflow[data-verdict="miss"] .cf-verdict { fill: var(--accent); }
+      .cacheflow[data-verdict="hit"] .cf-vpill { fill: rgba(18, 184, 134, 0.12); stroke: rgba(18, 184, 134, 0.45); }
+      .cacheflow[data-verdict="hit"] .cf-verdict { fill: #0f9d6f; }
+
+      /* 체이닝 실(thread): 칩들이 올라타는 왼→오 가로선. 칩 사이 틈으로 보여 '연결'이 됨 */
+      .cf-thread { stroke: var(--line); stroke-width: 3; stroke-linecap: round; transition: stroke 0.3s; }
+
+      /* 캐시에 왼→오로 이어 붙는 대화 칩 (🙂 질문 / 🐼 답변). 상태: write·read */
+      .cf-ex { opacity: 0; transition: opacity 0.4s ease; }
+      .cf-ex.role-a { transition-delay: 0.16s; }          /* 답변은 질문보다 살짝 늦게 — 순서감 */
+      .cf-ex.st-write, .cf-ex.st-read { opacity: 1; }
+      .cf-bub { fill: var(--card); stroke: var(--line); stroke-width: 1.2; transition: fill 0.3s, stroke 0.3s; }
+      .cf-bub-t { font-size: 10.5px; fill: var(--body); text-anchor: middle; }
+      .cf-ex.st-write .cf-bub { fill: var(--accent-soft); stroke: rgba(107, 76, 255, 0.45); }
+      .cf-ex.st-write .cf-bub-t { fill: var(--ink); font-weight: 600; }
+      .cf-ex.st-read .cf-bub { fill: rgba(18, 184, 134, 0.1); stroke: rgba(18, 184, 134, 0.4); }
+      .cf-ex.st-read .cf-bub-t { fill: #0f9d6f; }
+
+      /* 대화 → 캐시로 올라가는 흐름 화살표 */
+      .cf-rise { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 0.5 8; animation: cfRise 0.7s linear infinite; }
+      .cf-rise-tip { fill: var(--accent); }
+      .cacheflow[data-verdict="hit"] .cf-rise { stroke: #12b886; }
+      .cacheflow[data-verdict="hit"] .cf-rise-tip { fill: #12b886; }
+      @keyframes cfRise { to { stroke-dashoffset: -8.5; } }
+
+      /* 대화창 — 지금 주고받는 메시지(질문 🙂 오른쪽 · 답변 🐼 왼쪽) */
+      .cf-chat-q { fill: var(--accent-soft); stroke: rgba(107, 76, 255, 0.3); stroke-width: 1.2; }
+      .cf-chat-a { fill: var(--card); stroke: var(--line); stroke-width: 1.2; transition: opacity 0.3s; }
+      .cf-chat-qt { fill: var(--ink); font-weight: 700; font-size: 12.5px; text-anchor: middle; }
+      .cf-chat-at { fill: var(--muted); font-weight: 600; font-size: 12.5px; text-anchor: middle; transition: opacity 0.3s; }
+      .cf-uncached { fill: var(--muted); font-size: 10px; transition: opacity 0.3s; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cf-rise { animation: none !important; }
+        .cf-thread, .cf-ex, .cf-chat-a, .cf-chat-at, .cf-uncached { transition: none !important; }
+      }
+
+      /* ── 토큰 비용 비교 (제때 vs 골든타임 놓침, 추정치) ── 같은 4개 요청을
+         두 시나리오로 나눠 토큰 합계를 비교. 정적 표라 JS 없이 HTML/CSS 로만. */
+      .costcompare { margin: 22px 0 0; }
+      .problem .costcompare { grid-column: 1 / -1; }
+      .cc-cap { margin: 0 2px 12px; font-size: 13px; font-weight: 700; color: var(--ink); }
+      .cc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      @media (max-width: 620px) { .cc-grid { grid-template-columns: 1fr; } }
+      .cc-card { border: 1px solid var(--line); border-radius: 14px; padding: 15px 16px 13px; background: var(--card); box-shadow: var(--shadow); }
+      .cc-card.good { border-color: rgba(18, 184, 134, 0.3); }
+      .cc-card.bad { border-color: rgba(226, 59, 84, 0.28); }
+      .cc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+      .cc-title { font-size: 14px; font-weight: 800; color: var(--ink); }
+      .cc-badge { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+      .cc-badge.good { color: #0f9d6f; background: rgba(18, 184, 134, 0.12); }
+      .cc-badge.bad { color: #d8324b; background: rgba(226, 59, 84, 0.1); }
+      .cc-table { display: grid; grid-template-columns: 1fr auto auto auto auto auto; align-items: center; }
+      .cc-row { display: contents; }
+      .cc-msg { color: var(--body); font-size: 12px; padding: 7px 8px 7px 0; }
+      .cc-num { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; font-weight: 700; color: var(--muted); text-align: right; white-space: nowrap; padding: 7px 0 7px 9px; font-variant-numeric: tabular-nums; }
+      .cc-th .cc-w2 { white-space: normal; line-height: 1.3; }
+      .cc-num.sum { color: var(--body); }
+      .cc-num.dim { color: var(--muted); opacity: 0.4; }
+      .cc-row > * { border-top: 1px solid var(--line); }
+      .cc-th > * { border-top: 0; font-size: 9.5px; font-weight: 700; color: var(--muted); padding-bottom: 6px; }
+      .cc-expire { grid-column: 1 / -1; text-align: center; color: #c77700; font-size: 10.5px; font-weight: 700; background: rgba(255, 176, 32, 0.1); border-radius: 8px; padding: 5px 8px; margin: 6px 0; }
+      .cc-spacer { grid-column: 1 / -1; visibility: hidden; font-size: 10.5px; font-weight: 700; padding: 5px 8px; margin: 6px 0; }
+      .cc-tr > * { border-top: 2px solid var(--line); padding-top: 11px; }
+      .cc-tr .cc-msg { font-weight: 800; color: var(--ink); }
+      .cc-tr .cc-num { color: var(--body); }
+      .cc-num.raw { color: var(--muted); font-style: italic; }
+      .cc-num.hot { color: #d8324b; }
+      .cc-tr .cc-num.hot { color: #d8324b; }
+      .cc-th .cc-num.raw { font-style: normal; }
+      .cc-tr .cc-num.sum b { font-size: 15px; font-weight: 800; color: var(--accent); }
+      .cc-card.bad .cc-tr .cc-num.sum b { color: #d8324b; }
+      .costcompare .cf-cap { text-align: left; }
     </style>
   </head>
   <body>
@@ -215,125 +1017,569 @@
       <div class="wrap">
         <span class="brand"><img src="assets/icon.png" alt="" />토큰 판다</span>
         <span class="nav-links">
-          <a href="#why">왜</a>
-          <a href="#setup">설정</a>
+          <a href="#problem">문제</a>
+          <a href="#timer">타이머</a>
           <a href="#features">기능</a>
           <a href="#modes">표시 모드</a>
           <a href="#accounts">계정 전환</a>
           <a href="#update">자동 업데이트</a>
-          <a href="https://github.com/JohnPrk/token-panda-v2">GitHub</a>
+          <a class="nav-cta" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">다운로드</a>
         </span>
       </div>
     </nav>
 
-    <!-- HERO -->
+    <!-- HERO — living hamlet -->
     <header class="hero">
-      <div class="wrap">
-        <img class="mascot" src="assets/panda-idle.png" alt="토큰 판다 마스코트" />
-        <h1>토큰 판다</h1>
+      <div class="wrap hero-copy">
+        <h1>토큰 얼마 남았는지, <span class="grad">더는 안 봐도 돼요!</span></h1>
         <p class="tagline">
-          데스크톱 한구석에서 너의 <strong>Claude·Gemini 토큰 잔량</strong>을
-          지켜봐주는 작은 판다. 5분 캐시 골든타임을 놓치지 않게 신호를 보내요.
+          데스크톱 한구석의 작은 펫이 Claude·Gemini 토큰 잔량을 대신 알려줘요!
+          5분 캐시 골든타임도 놓치지 않게 챙겨줘서, 토큰을 아껴 쓸 수 있어요.
         </p>
-        <div class="cta">
-          <a class="btn btn-primary" href="https://github.com/JohnPrk/token-panda-v2/releases/latest"> macOS .dmg 다운로드</a>
-          <a class="btn btn-ghost" href="https://github.com/JohnPrk/token-panda-v2/releases/latest"> Windows .exe 다운로드</a>
+      </div>
+
+      <div class="wrap">
+        <div class="hamlet" data-alarm="off" aria-hidden="true">
+          <svg class="vdefs" aria-hidden="true" width="0" height="0">
+            <defs>
+              <radialGradient id="sunG" cx="40%" cy="34%" r="72%">
+                <stop offset="0%" stop-color="#fff4ba" />
+                <stop offset="55%" stop-color="#ffd451" />
+                <stop offset="100%" stop-color="#ffbe2c" />
+              </radialGradient>
+              <radialGradient id="leafG" cx="38%" cy="28%" r="80%">
+                <stop offset="0%" stop-color="#bdeec6" />
+                <stop offset="58%" stop-color="#80cf93" />
+                <stop offset="100%" stop-color="#54b072" />
+              </radialGradient>
+              <linearGradient id="trunkG" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#cda473" />
+                <stop offset="100%" stop-color="#a47f4d" />
+              </linearGradient>
+              <linearGradient id="wallG" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#fff8ee" />
+                <stop offset="100%" stop-color="#ffe8cd" />
+              </linearGradient>
+              <linearGradient id="glassG" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#dcefff" />
+                <stop offset="100%" stop-color="#a6d3f1" />
+              </linearGradient>
+              <symbol id="treeSym" viewBox="0 0 100 124">
+                <ellipse cx="50" cy="116" rx="27" ry="6" fill="rgba(40,70,45,0.16)" />
+                <rect x="43" y="74" width="14" height="40" rx="7" fill="url(#trunkG)" />
+                <circle cx="28" cy="60" r="19" fill="url(#leafG)" />
+                <circle cx="72" cy="60" r="19" fill="url(#leafG)" />
+                <circle cx="50" cy="44" r="33" fill="url(#leafG)" />
+                <circle cx="50" cy="66" r="21" fill="url(#leafG)" />
+                <ellipse cx="40" cy="32" rx="11" ry="8" fill="#d6f5da" opacity="0.6" />
+              </symbol>
+              <symbol id="houseSym" viewBox="0 0 120 112">
+                <ellipse cx="60" cy="105" rx="46" ry="7" fill="rgba(50,40,70,0.14)" />
+                <rect x="27" y="50" width="66" height="52" rx="11" fill="url(#wallG)" />
+                <path d="M16 56 Q60 12 104 56 Q106 61 99 61 L21 61 Q14 61 16 56 Z" fill="currentColor" />
+                <path d="M26 53 Q60 22 94 53 Q70 41 26 53 Z" fill="#ffffff" opacity="0.22" />
+                <rect x="52" y="74" width="16" height="28" rx="8" fill="#cf9f6b" />
+                <circle cx="64.5" cy="89" r="1.7" fill="#7c5a32" />
+                <rect x="33" y="66" width="14" height="14" rx="4" fill="url(#glassG)" />
+                <rect x="73" y="66" width="14" height="14" rx="4" fill="url(#glassG)" />
+                <path d="M34 67 L40 67 L34 73 Z" fill="#ffffff" opacity="0.55" />
+                <path d="M74 67 L80 67 L74 73 Z" fill="#ffffff" opacity="0.55" />
+              </symbol>
+              <symbol id="tuftSym" viewBox="0 0 60 50">
+                <path d="M30 48 C24 36 20 26 18 14 C17 9 21 8 23 13 C26 22 28 32 30 48 Z" fill="url(#leafG)" />
+                <path d="M30 48 C30 34 31 22 34 10 C35 5 39 6 38 12 C36 26 33 38 30 48 Z" fill="url(#leafG)" />
+                <path d="M30 48 C34 38 40 30 47 22 C50 18 53 22 49 26 C42 33 36 40 30 48 Z" fill="url(#leafG)" />
+                <path d="M30 48 C26 40 19 33 12 27 C9 24 7 28 10 31 C18 38 25 42 30 48 Z" fill="url(#leafG)" />
+              </symbol>
+            </defs>
+          </svg>
+
+          <span class="sun">
+            <svg viewBox="0 0 120 120">
+              <g class="rays" fill="#ffd24c">
+                <rect x="55" y="3"  width="10" height="22" rx="5" />
+                <rect x="55" y="3"  width="10" height="22" rx="5" transform="rotate(45 60 60)" />
+                <rect x="55" y="3"  width="10" height="22" rx="5" transform="rotate(90 60 60)" />
+                <rect x="55" y="3"  width="10" height="22" rx="5" transform="rotate(135 60 60)" />
+                <rect x="55" y="3"  width="10" height="22" rx="5" transform="rotate(180 60 60)" />
+                <rect x="55" y="3"  width="10" height="22" rx="5" transform="rotate(225 60 60)" />
+                <rect x="55" y="3"  width="10" height="22" rx="5" transform="rotate(270 60 60)" />
+                <rect x="55" y="3"  width="10" height="22" rx="5" transform="rotate(315 60 60)" />
+              </g>
+              <circle cx="60" cy="60" r="33" fill="url(#sunG)" />
+              <ellipse cx="49" cy="48" rx="12" ry="9" fill="#fff7cc" opacity="0.75" />
+            </svg>
+          </span>
+          <i class="cloud cl1"></i>
+          <i class="cloud cl2"></i>
+          <span class="green"></span>
+          <span class="path">
+            <svg viewBox="0 0 240 220" preserveAspectRatio="none">
+              <linearGradient id="dirtG" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#d9b985" />
+                <stop offset="100%" stop-color="#c2924f" />
+              </linearGradient>
+              <polygon points="100,0 140,0 240,220 0,220" fill="url(#dirtG)" />
+              <polygon points="116,0 124,0 170,220 70,220" fill="#e6c997" opacity="0.45" />
+              <polygon points="100,0 105,0 16,220 0,220" fill="#9f7740" opacity="0.32" />
+              <polygon points="135,0 140,0 240,220 224,220" fill="#9f7740" opacity="0.32" />
+              <g fill="#a87f49" opacity="0.5">
+                <ellipse cx="112" cy="42" rx="3" ry="2" />
+                <ellipse cx="150" cy="92" rx="6" ry="3.4" />
+                <ellipse cx="78" cy="150" rx="8" ry="4.4" />
+                <ellipse cx="176" cy="172" rx="7" ry="4" />
+                <ellipse cx="122" cy="120" rx="3.4" ry="2.2" />
+              </g>
+              <g fill="#f1e2c1" opacity="0.55">
+                <ellipse cx="96" cy="70" rx="2.4" ry="1.5" />
+                <ellipse cx="160" cy="132" rx="3.4" ry="2.2" />
+                <ellipse cx="58" cy="192" rx="4.6" ry="2.8" />
+              </g>
+            </svg>
+          </span>
+
+          <div class="house h1"><svg viewBox="0 0 120 112"><use href="#houseSym" /></svg></div>
+          <div class="house h2"><svg viewBox="0 0 120 112"><use href="#houseSym" /></svg></div>
+          <div class="tree t1"><svg viewBox="0 0 100 124"><use href="#treeSym" /></svg></div>
+          <div class="tree t2"><svg viewBox="0 0 100 124"><use href="#treeSym" /></svg></div>
+          <div class="tree t3"><svg viewBox="0 0 100 124"><use href="#treeSym" /></svg></div>
+          <span class="tuft g1"><svg viewBox="0 0 60 50"><use href="#tuftSym" /></svg></span>
+          <span class="tuft g2"><svg viewBox="0 0 60 50"><use href="#tuftSym" /></svg></span>
+          <span class="tuft g3"><svg viewBox="0 0 60 50"><use href="#tuftSym" /></svg></span>
+          <span class="tuft g4"><svg viewBox="0 0 60 50"><use href="#tuftSym" /></svg></span>
+          <span class="tuft g5"><svg viewBox="0 0 60 50"><use href="#tuftSym" /></svg></span>
+
+          <!-- panda sits up on the lookout tower (전망대) and watches -->
+          <div class="watcher">
+            <span class="mound"></span>
+            <span class="wbubble"><span class="wmsg m1">🐼 토큰 캐시 골든타임이 얼마 남지 않았어요!</span><span class="wmsg m2">🐼 얼른 사용자에게 알려주세요!</span></span>
+            <img src="assets/float/panda-perch.png" alt="" />
+          </div>
+
+          <!-- resting shiba — 좌측 풀밭에 누워 막 시작된 5분 캐시 타이머를
+               느긋하게 지켜본다 (길 건너 달려오는 햄스터 쪽을 바라봄) -->
+          <div class="rester">
+            <span class="rbubble">
+              <span class="rtimer">⏳ <span class="rtime">5:00</span></span>
+              <span class="rhit">🎉 캐시 히트!</span>
+            </span>
+            <img src="assets/float/dog-rest.png" alt="" />
+          </div>
+
+          <!-- villager (햄스터): 길 위에 서서 5분 캐시 타이머를 들고 있다가,
+               마감이 다가오면 길을 따라 앞(뷰어 쪽)으로 달려온다.
+               좌표는 배경 길 위 기준: hx/hy = 발끝 위치(0~1), hs = 원근 크기 -->
+          <div class="vil gif" data-path="0.470,0.550 0.448,0.70 0.411,0.91" data-hs="1.10" data-he="2.05">
+            <div class="bc">
+              <div class="qcard">
+                <div class="q">💬 <b>“에러 원인</b> 좀 찾아줘”</div>
+                <div class="meta"><span class="ic">⏳</span><span class="tnum">0:30</span><span class="u">캐시 유지</span></div>
+              </div>
+              <span class="bubble"></span>
+              <span class="watch-prop">⌚</span>
+              <img src="assets/float/hamster-run.gif" alt="" />
+            </div>
+          </div>
+
+          <!-- villager (오리): 햄스터 오른편 길로 함께 달려오되, 큰 작업이라
+               느릿느릿하다. data-loop="90" 으로 90초에 걸쳐 천천히 앞으로 전진하고,
+               data-delay="10" 으로 햄스터보다 10초 늦게 출발한다.
+               watch-prop(⌚) 은 빼서 role 머신이 무력화되도록(gif 는 다리 모션을
+               gif 자체가 담당) — 빈 .bubble 은 :empty 규칙으로 항상 숨김. -->
+          <div class="vil gif" data-loop="90" data-delay="10" data-path="0.560,0.545 0.585,0.70 0.620,0.90" data-hs="1.05" data-he="1.98">
+            <div class="bc">
+              <div class="qcard">
+                <div class="q">💬 <b>“이 PR 전체</b> 리뷰해줘”</div>
+                <div class="meta"><span class="ic">⏳</span><span class="tnum">1:30</span><span class="u">캐시 유지</span></div>
+              </div>
+              <span class="bubble"></span>
+              <img src="assets/float/duck-run.gif" alt="" />
+            </div>
+          </div>
+
+          <!-- 나머지 마을 주민들은 햄스터 배치 확정 후 다시 켤 예정 (DOM 보존) -->
+          <!--
+          <div class="vil" data-hx="0.44" data-hy="0.30" data-hs="0.34">
+            <div class="bc">
+              <span class="tmr"><b class="dot"></b><span class="tnum">0:30</span></span>
+              <span class="bubble"></span>
+              <span class="watch-prop">⌚</span>
+              <img src="assets/float/cat.png" alt="" />
+            </div>
+          </div>
+          <div class="vil" data-hx="0.38" data-hy="0.33" data-hs="0.40">
+            <div class="bc">
+              <span class="tmr"><b class="dot"></b><span class="tnum">3:40</span></span>
+              <span class="bubble"></span>
+              <span class="watch-prop">⌚</span>
+              <img src="assets/float/dog.png" alt="" />
+            </div>
+          </div>
+          <div class="vil" data-hx="0.47" data-hy="0.27" data-hs="0.30">
+            <div class="bc">
+              <span class="tmr"><b class="dot"></b><span class="tnum">0:55</span></span>
+              <span class="bubble"></span>
+              <span class="watch-prop">⌚</span>
+              <img src="assets/float/chick.png" alt="" />
+            </div>
+          </div>
+          <div class="vil" data-hx="0.50" data-hy="0.24" data-hs="0.26">
+            <div class="bc">
+              <span class="tmr"><b class="dot"></b><span class="tnum">2:30</span></span>
+              <span class="bubble"></span>
+              <span class="watch-prop">⌚</span>
+              <img src="assets/float/hippo.png" alt="" />
+            </div>
+          </div>
+          -->
         </div>
-        <p class="platforms">macOS 11+ (Apple Silicon) · Windows 10+ x64 · 무료 · MIT</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">macOS .dmg 다운로드</a>
+          <a class="btn btn-ghost" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">Windows .exe 다운로드</a>
+        </div>
+        <p class="platforms">macOS 11+ (Apple Silicon) · Windows 11 x64 · 무료 · 오픈소스 (MIT)</p>
       </div>
     </header>
 
-    <!-- WHY -->
-    <section id="why">
+    <!-- PROBLEM -->
+    <section id="problem" class="problem">
       <div class="wrap">
-        <h2>왜 만들었나</h2>
-        <p class="section-lead">Claude의 유일한 단점은 <strong>토큰 한도</strong>예요.</p>
-        <p>
-          질문에 답을 받고 <strong>5분 이내</strong>에 다음 대화를 이어가면, Claude는
-          기존 내용을 캐시해두었다가 토큰 소모량을 획기적으로 아껴줍니다. 하지만 다른
-          업무를 하다 보면 이 짧은 '골든타임'을 놓치기 쉬워요. 이제 화면 속 작은 판다가
-          그 타이밍을 놓치지 않게 신호를 보냅니다.
+        <p class="eyebrow">The Problem</p>
+        <h2>토큰이 왜 이렇게 빨리 사라지는지 혹시 아시나요?</h2>
+        <div class="pcols">
+          <div class="prose-facts">
+            <div>
+              <p class="pf">
+                Claude는 지난 대화를 따로 기억해 두지 않아요. 그래서 메시지를 보낼 때마다
+                그동안 쌓인 대화 전체를 다시 입력으로 받아 처리하고, 턴이 쌓일수록 한 번에
+                드는 토큰도 선형으로 불어납니다.
+              </p>
+              <p class="src">출처 · <a href="https://platform.claude.com/docs/ko/build-with-claude/context-windows" target="_blank" rel="noopener">컨텍스트 윈도우 · Claude Docs</a></p>
+            </div>
+            <div>
+              <p class="pf">
+                그래서 '프롬프트 캐싱'이라는 게 있어요. 같은 앞부분을 짧은 시간 안에 다시
+                보내면 이미 처리해 둔 부분은 다시 계산하지 않고 이어 쓰는데, 이 캐시는 기본
+                5분 동안 유지되고 쓸 때마다 5분이 다시 채워집니다.
+              </p>
+              <p class="src">출처 · <a href="https://platform.claude.com/docs/ko/build-with-claude/prompt-caching" target="_blank" rel="noopener">프롬프트 캐싱 · Claude Docs</a></p>
+            </div>
+            <div>
+              <p class="pf">
+                이렇게 캐시가 히트하면 기존에 보냈던 메시지들은 토큰을 <b>1/10</b>만 쓰게 돼요.
+                문제는 그 5분이 워낙 짧아서, 다른 작업을 진행하다가 깜빡하기 쉽다는 점이에요.
+              </p>
+            </div>
+          </div>
+          <div class="burn">
+            <figure class="cacheflow" data-verdict="miss" aria-label="프롬프트 캐시가 대화를 왼쪽에서 오른쪽으로 체이닝하는 흐름: 주고받은 질문과 답변이 순서대로 이어 붙는다. 다음 메시지를 보내면 왼쪽에 쌓인 맥락은 cache_read로 재사용하고 새로 더한 오른쪽 부분만 cache_write로 기록한다. 방금 받은 답변은 그 즉시 캐시되지 않고 다음 메시지를 보낼 때 그 질문과 함께 캐시에 올라간다">
+              <svg viewBox="0 0 720 344" aria-hidden="true">
+                <!-- 판정 배지 (스텝마다 JS 가 텍스트·색 갱신) -->
+                <rect class="cf-vpill" x="160" y="8" width="400" height="30" rx="15" />
+                <text class="cf-verdict" x="360" y="28">맥락 저장 · cache_write 10,000 토큰</text>
+
+                <!-- 위: 프롬프트 캐시 존 (대화가 왼→오로 이어 붙음) -->
+                <rect class="cf-zone cache" x="24" y="46" width="672" height="120" rx="16" />
+                <text class="cf-zone-t" x="42" y="70">프롬프트 캐시 · 대화가 왼쪽 → 오른쪽으로 이어 붙어요</text>
+
+                <!-- 체이닝 실(thread): 첫 칩 → 마지막 보이는 칩 (JS 가 x2 갱신), 칩 뒤에 깔려 틈으로 보임 -->
+                <line class="cf-thread" x1="80.5" y1="116" x2="80.5" y2="116" />
+
+                <!-- 칩 7개: [Q1,A1,Q2,A2,Q3,A3,Q4] (A4 는 마지막 답변이라 아직 캐시 전) -->
+                <g class="cf-ex role-q" data-i="0">
+                  <rect class="cf-bub" x="38" y="98" width="85" height="36" rx="12" />
+                  <text class="cf-bub-t" x="80.5" y="120">🙂 PR 리뷰</text>
+                </g>
+                <g class="cf-ex role-a" data-i="1">
+                  <rect class="cf-bub" x="132" y="98" width="85" height="36" rx="12" />
+                  <text class="cf-bub-t" x="174.5" y="120">🐼 분석</text>
+                </g>
+                <g class="cf-ex role-q" data-i="2">
+                  <rect class="cf-bub" x="226" y="98" width="85" height="36" rx="12" />
+                  <text class="cf-bub-t" x="268.5" y="120">🙂 예외 뜻?</text>
+                </g>
+                <g class="cf-ex role-a" data-i="3">
+                  <rect class="cf-bub" x="320" y="98" width="85" height="36" rx="12" />
+                  <text class="cf-bub-t" x="362.5" y="120">🐼 설명</text>
+                </g>
+                <g class="cf-ex role-q" data-i="4">
+                  <rect class="cf-bub" x="414" y="98" width="85" height="36" rx="12" />
+                  <text class="cf-bub-t" x="456.5" y="120">🙂 함수 수정?</text>
+                </g>
+                <g class="cf-ex role-a" data-i="5">
+                  <rect class="cf-bub" x="508" y="98" width="85" height="36" rx="12" />
+                  <text class="cf-bub-t" x="550.5" y="120">🐼 제안</text>
+                </g>
+                <g class="cf-ex role-q" data-i="6">
+                  <rect class="cf-bub" x="602" y="98" width="85" height="36" rx="12" />
+                  <text class="cf-bub-t" x="644.5" y="120">🙂 커밋·푸시</text>
+                </g>
+
+                <!-- 대화 → 캐시로 올라가는 흐름 (위로) -->
+                <path class="cf-rise" d="M349 185 V171" />
+                <polygon class="cf-rise-tip" points="342,174 356,174 349,164" />
+                <path class="cf-rise" d="M371 185 V171" />
+                <polygon class="cf-rise-tip" points="364,174 378,174 371,164" />
+
+                <!-- 아래: 대화창 (지금 주고받는 메시지) -->
+                <rect class="cf-zone" x="24" y="188" width="672" height="150" rx="16" />
+                <text class="cf-zone-t" x="42" y="212">대화 · claude.ai</text>
+                <!-- 내 질문 (오른쪽) -->
+                <rect class="cf-chat-q" x="300" y="226" width="372" height="36" rx="18" />
+                <text class="cf-chat-qt" x="486" y="249">🙂 PR 리뷰 코멘트 분석해줘</text>
+                <!-- 판다 답변 (왼쪽) -->
+                <rect class="cf-chat-a" x="48" y="278" width="372" height="36" rx="18" />
+                <text class="cf-chat-at" x="234" y="301">🐼 코멘트 분석 결과 정리…</text>
+                <text class="cf-uncached" x="48" y="331">↑ 방금 받은 답변은 다음 메시지를 보낼 때 그 질문과 함께 캐시로 올라가요</text>
+              </svg>
+              <figcaption class="cf-cap">대화가 <b>왼쪽에서 오른쪽으로 이어 붙어요(체이닝)</b> — 프롬프트는 결국 이 순서 그대로의 토큰 열이거든요. 다음 메시지를 보내면 이미 쌓인 <b class="r">왼쪽 맥락은 cache_read</b>로 1/10 값에 재사용하고, <b>새로 더한 오른쪽 부분만 cache_write</b>로 기록해요. 방금 받은 답변은 그 즉시 캐시되지 않고 <b>다음 메시지를 보낼 때</b> 그 질문과 함께 올라가요(그래서 최신 답변은 아직 대화창에 떠 있죠). <a href="https://platform.claude.com/docs/ko/build-with-claude/prompt-caching" target="_blank" rel="noopener">프롬프트 캐싱 · Claude Docs</a></figcaption>
+            </figure>
+          </div>
+          <figure class="costcompare" aria-label="같은 4개 요청의 토큰 비용 비교. cache_read는 누적 토큰의 0.1배, real_token은 이번 메시지에서 새로 보내는 실제 토큰, cache_write 신규는 그 real_token의 1.25배, cache_write 기존은 캐시가 만료돼 누적 대화를 다시 기록하는 1.25배. 제때 이어서 보내면 합계 21,625 토큰, 학습에 몰두해 5분을 넘겨 '이 함수 고치면 될까?'에서 누적 대화를 다시 기록하면 cache_write 기존 15,000이 더해져 합계 35,425 토큰">
+            <figcaption class="cc-cap">같은 작업, 같은 4개 요청 — 골든타임을 지켰을 때와 놓쳤을 때 토큰 비용</figcaption>
+            <div class="cc-grid">
+              <div class="cc-card good">
+                <div class="cc-head">
+                  <span class="cc-title">제때 이어서 보냄</span>
+                  <span class="cc-badge good">알뜰</span>
+                </div>
+                <div class="cc-table">
+                  <div class="cc-row cc-th">
+                    <span class="cc-msg">메시지</span>
+                    <span class="cc-num">cache_read</span>
+                    <span class="cc-num">real_token</span>
+                    <span class="cc-num cc-w2">cache_write 신규</span>
+                    <span class="cc-num cc-w2">cache_write 기존</span>
+                    <span class="cc-num">합계</span>
+                  </div>
+                  <div class="cc-row">
+                    <span class="cc-msg">PR 리뷰 코멘트 분석해줘</span>
+                    <span class="cc-num dim">0</span>
+                    <span class="cc-num raw">10,000</span>
+                    <span class="cc-num">12,500</span>
+                    <span class="cc-num dim">0</span>
+                    <span class="cc-num sum">12,500</span>
+                  </div>
+                  <div class="cc-row">
+                    <span class="cc-msg">'DuplicateKeyException' 뜻이 뭐야?</span>
+                    <span class="cc-num">1,000</span>
+                    <span class="cc-num raw">2,000</span>
+                    <span class="cc-num">2,500</span>
+                    <span class="cc-num dim">0</span>
+                    <span class="cc-num sum">3,500</span>
+                  </div>
+                  <div class="cc-spacer" aria-hidden="true">학습에 몰두하다가 5분 경과 · 캐시 만료</div>
+                  <div class="cc-row">
+                    <span class="cc-msg">이 함수 고치면 될까?</span>
+                    <span class="cc-num">1,200</span>
+                    <span class="cc-num raw">1,000</span>
+                    <span class="cc-num">1,250</span>
+                    <span class="cc-num dim">0</span>
+                    <span class="cc-num sum">2,450</span>
+                  </div>
+                  <div class="cc-row">
+                    <span class="cc-msg">커밋 푸시하고 답변 달아줘</span>
+                    <span class="cc-num">1,300</span>
+                    <span class="cc-num raw">1,500</span>
+                    <span class="cc-num">1,875</span>
+                    <span class="cc-num dim">0</span>
+                    <span class="cc-num sum">3,175</span>
+                  </div>
+                  <div class="cc-row cc-tr">
+                    <span class="cc-msg">합계</span>
+                    <span class="cc-num">3,500</span>
+                    <span class="cc-num raw">14,500</span>
+                    <span class="cc-num">18,125</span>
+                    <span class="cc-num dim">0</span>
+                    <span class="cc-num sum"><b>21,625</b></span>
+                  </div>
+                </div>
+              </div>
+              <div class="cc-card bad">
+                <div class="cc-head">
+                  <span class="cc-title">학습 몰두로 5분 넘김</span>
+                  <span class="cc-badge bad">낭비</span>
+                </div>
+                <div class="cc-table">
+                  <div class="cc-row cc-th">
+                    <span class="cc-msg">메시지</span>
+                    <span class="cc-num">cache_read</span>
+                    <span class="cc-num">real_token</span>
+                    <span class="cc-num cc-w2">cache_write 신규</span>
+                    <span class="cc-num cc-w2">cache_write 기존</span>
+                    <span class="cc-num">합계</span>
+                  </div>
+                  <div class="cc-row">
+                    <span class="cc-msg">PR 리뷰 코멘트 분석해줘</span>
+                    <span class="cc-num dim">0</span>
+                    <span class="cc-num raw">10,000</span>
+                    <span class="cc-num">12,500</span>
+                    <span class="cc-num dim">0</span>
+                    <span class="cc-num sum">12,500</span>
+                  </div>
+                  <div class="cc-row">
+                    <span class="cc-msg">'DuplicateKeyException' 뜻이 뭐야?</span>
+                    <span class="cc-num">1,000</span>
+                    <span class="cc-num raw">2,000</span>
+                    <span class="cc-num">2,500</span>
+                    <span class="cc-num dim">0</span>
+                    <span class="cc-num sum">3,500</span>
+                  </div>
+                  <div class="cc-expire">학습에 몰두하다가 5분 경과 · 캐시 만료</div>
+                  <div class="cc-row">
+                    <span class="cc-msg">이 함수 고치면 될까?</span>
+                    <span class="cc-num dim">0</span>
+                    <span class="cc-num raw">1,000</span>
+                    <span class="cc-num">1,250</span>
+                    <span class="cc-num hot">15,000</span>
+                    <span class="cc-num sum">16,250</span>
+                  </div>
+                  <div class="cc-row">
+                    <span class="cc-msg">커밋 푸시하고 답변 달아줘</span>
+                    <span class="cc-num">1,300</span>
+                    <span class="cc-num raw">1,500</span>
+                    <span class="cc-num">1,875</span>
+                    <span class="cc-num dim">0</span>
+                    <span class="cc-num sum">3,175</span>
+                  </div>
+                  <div class="cc-row cc-tr">
+                    <span class="cc-msg">합계</span>
+                    <span class="cc-num">2,300</span>
+                    <span class="cc-num raw">14,500</span>
+                    <span class="cc-num">18,125</span>
+                    <span class="cc-num hot">15,000</span>
+                    <span class="cc-num sum"><b>35,425</b></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption class="cf-cap"><b>real_token</b>은 이번 메시지에서 새로 보내는 실제 토큰이고, <b>cache_write</b>는 그걸 캐시에 기록할 때 <b>× 1.25</b>를 적용한 청구 토큰이에요. <b>신규</b>는 이번 메시지(real_token)의 1.25배, <b>기존</b>은 캐시가 만료돼 누적 대화를 통째로 다시 기록할 때의 1.25배예요(캐시가 살아 있으면 <b>0</b>). cache_read는 직전까지 누적 토큰 × <b>0.1</b>(둘 다 5분 캐시 기준), 합계는 cache_read + cache_write(신규+기존)예요. 골든타임을 놓치면 <b>'이 함수 고치면 될까?'</b>에서 기존 대화 <b>12,000</b>을 통째로 다시 기록해 <b class="r">cache_write 기존이 15,000</b>까지 붙고, 합계가 <b>약 1.6배</b>(21,625 → 35,425)가 돼요. 양쪽 모두 <b>real_token은 14,500</b>으로 똑같은데, 놓친 쪽만 재기록 비용이 더 얹히는 거죠. 메시지 토큰은 PR 맥락 10,000 · 질문 2,000 · 함수 1,000 · 커밋 1,500으로 가정한 값이에요.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- TIMER VILLAGE -->
+    <section id="timer" class="village-sec">
+      <div class="wrap">
+        <p class="eyebrow">판다는 이렇게 챙겨요 ① 타이밍</p>
+        <h2>질문을 보내면, 5분이 시작돼요</h2>
+        <p class="lead">
+          마지막 응답에서 5분 안에 다음 메시지를 보내면 캐시가 히트하고 토큰이 1/10로 줄어요.
+          그동안 판다가 머리 위 타이머로 남은 시간을 보여줘서, 골든타임을 놓치지 않게 챙겨줘요.
         </p>
-        <div class="callout">
-          💡 마지막 요청에서 <strong>5분 안에</strong> 다음 요청을 보내면 그 직전까지의
-          컨텍스트가 캐시 히트로 처리돼 토큰 사용량이 <strong>1/10</strong>로 줄어듭니다.
+        <div class="petbox solo">
+          <div class="cbubble">
+            <span class="ctimer"><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="ct-track" cx="18" cy="18" r="15" /><circle class="ct-prog" cx="18" cy="18" r="15" /></svg></span>
+            <b class="ct-num">5:00</b>
+          </div>
+          <img class="pet" src="assets/float/panda.png" alt="머리 위에 캐시 타이머를 띄운 판다" />
+        </div>
+        <div class="tline" aria-hidden="true">
+          <div class="tl-playhead"><span class="tl-coin">🐼</span></div>
+          <div class="tl-track">
+            <div class="tl-zone golden"></div>
+            <div class="tl-zone danger"></div>
+          </div>
+          <div class="tl-marks">
+            <div class="tl-mark start"><b><span class="dot" style="background:#34d399"></span>보냄</b><i>0:00</i></div>
+            <div class="tl-mark warn"><b><span class="dot" style="background:#ffb020"></span>1분 남음</b><i>4:00</i></div>
+            <div class="tl-mark end"><b><span class="dot" style="background:#ff5656"></span>만료 · 미스</b><i>5:00</i></div>
+          </div>
+          <div class="tl-legend">
+            <span class="lg">🟢 <b>캐시 살아있음</b> — 보내면 토큰 1/10</span>
+            <span class="lg">🟠 <b>마지막 1분</b> — 곧 만료, 서둘러</span>
+            <span class="lg">🔴 <b>만료</b> — 캐시 미스, 토큰 ×10</span>
+          </div>
+        </div>
+        <p class="village-note">
+          실제 앱에서는 claude.ai에 질문을 보내는 순간 이 5분이 자동으로 흐릅니다. 위는 흐름을 보여주는 그림이에요.
+        </p>
+      </div>
+    </section>
+
+    <!-- REMAINING — 메뉴바 표시 모드 스크롤 (core) -->
+    <section id="remaining">
+      <div class="wrap">
+        <p class="eyebrow">판다는 이렇게 챙겨요 ② 잔량</p>
+        <h2>메뉴바에, 보고 싶은 잔량만</h2>
+        <p class="lead">
+          claude.ai 설정 페이지를 열 필요 없어요. 5시간만 간단히, 주간까지, API 잔액까지 —
+          메뉴바에 무엇을 띄울지 고르면 그 숫자가 항상 거기 떠 있어요.
+        </p>
+        <div class="screenbox">
+          <div class="mbar">
+            <span class="mb-brand">🐼</span>
+            <span class="mb-menu">파일  편집  보기</span>
+            <span class="mb-token"><span class="mb-bamboo">🎋</span><span class="mb-roll"><span class="mb-rollinner">
+              <span class="mb-line">5h 42%</span>
+              <span class="mb-line">5h 42% · 주 88%</span>
+              <span class="mb-line">5h 42% · 주 88% · $12</span>
+              <span class="mb-line">5h 42%</span>
+            </span></span></span>
+            <span class="mb-sys">🔋</span>
+            <span class="mb-sys">📶</span>
+            <span class="mb-time">9:41</span>
+          </div>
+        </div>
+        <p class="mbar-cap">↑ 메뉴바 메뉴에서 표시 항목을 골라요 — 5시간 · 주간 · API 잔액($)이 위처럼 전환돼요.</p>
+      </div>
+    </section>
+
+    <!-- CHARACTER STATES · 표정 -->
+    <section id="states">
+      <div class="wrap">
+        <p class="eyebrow">판다는 이렇게 챙겨요 ③ 표정</p>
+        <h2>잔량 따라 변하는 표정</h2>
+        <p class="lead">5시간 토큰 잔량에 따라 8단계로 외형과 동작이 바뀌어요. 숫자를 안 봐도 표정만 보면 알아요.</p>
+        <div class="states">
+          <div class="state"><img src="assets/panda-cheerful.png" alt="" /><span>여유</span></div>
+          <div class="state"><img src="assets/panda-idle.png" alt="" /><span>보통</span></div>
+          <div class="state"><img src="assets/panda-sit.png" alt="" /><span>앉음</span></div>
+          <div class="state"><img src="assets/panda-tired.png" alt="" /><span>지침</span></div>
+          <div class="state"><img src="assets/panda-sleepy.png" alt="" /><span>졸림</span></div>
+          <div class="state"><img src="assets/panda-dead.png" alt="" /><span>방전</span></div>
         </div>
         <figure>
           <div class="shot">
             <div>
-              <span class="tag">여기에 이미지</span><br />
-              데스크톱에 떠 있는 판다 펫 + 메뉴바 잔량 표시
-              <span class="fname">docs/assets/shot-desktop.png</span>
-              <div class="hint">이 이름으로 저장하면 자동으로 표시돼요</div>
+              <span class="tag">여기에 GIF</span><br />
+              캐시 Hit(노란 폭죽) / Miss(푸른 비) 이펙트 모션
+              <span class="fname">docs/assets/shot-cache.gif</span>
+              <div class="hint">GIF 권장 (Gifski). 동영상이면 mp4로 주면 &lt;video&gt;로 바꿔줄게요</div>
             </div>
           </div>
-          <img
-            class="real"
-            src="assets/shot-desktop.png"
-            alt="실행 중인 토큰 판다 — 데스크톱 펫과 메뉴바 잔량"
-            style="display: none"
-            onload="this.style.display='block'; this.previousElementSibling.style.display='none';"
-          />
-          <figcaption>실행 중인 토큰 판다 (데스크톱 + 메뉴바)</figcaption>
+          <img class="real" src="assets/shot-cache.gif" alt="캐시 Hit/Miss 이펙트 모션" style="display:none"
+               onload="this.style.display='block'; this.previousElementSibling.style.display='none';" />
+          <figcaption>캐시 결과 시각화 — Hit 폭죽 / Miss 비</figcaption>
         </figure>
       </div>
     </section>
 
-    <!-- SETUP -->
-    <section id="setup">
+    <!-- MULTI-CHARACTER · 여러 캐릭터 -->
+    <section id="characters">
       <div class="wrap">
-        <h2>설정은 이렇게</h2>
-        <p class="section-lead">처음 한 번만 등록하면 30초마다 자동으로 갱신돼요.</p>
-        <div class="steps">
-          <div class="step">
-            <div class="num">1</div>
-            <div>
-              <h3>캐릭터 고르기</h3>
-              <p>데스크톱 모서리에 앉을 친구를 고릅니다 (판다 · 고양이 · 햄스터). 나중에 <code>설정</code>에서 언제든 변경 가능.</p>
-            </div>
-          </div>
-          <div class="step">
-            <div class="num">2</div>
-            <div>
-              <h3>서비스 선택 — Claude 또는 Gemini</h3>
-              <p>새 계정 추가에서 <strong>Claude</strong> 또는 <strong>Gemini</strong> 탭을 고릅니다. 두 서비스 모두 세션 쿠키 한 줄로 연동돼요.</p>
-            </div>
-          </div>
-          <div class="step">
-            <div class="num">3</div>
-            <div>
-              <h3>쿠키 붙여넣기</h3>
-              <p>안내대로 브라우저 DevTools → Network 탭에서 <code>cookie:</code> 한 줄을 복사해 붙여넣으면 끝. <strong>테스트</strong> 버튼으로 바로 확인할 수 있어요. (Claude는 자동 가져오기도 지원)</p>
-            </div>
-          </div>
+        <p class="eyebrow">판다는 이렇게 챙겨요 ④ 캐릭터</p>
+        <h2>마음에 드는 친구로</h2>
+        <p class="lead">판다가 기본이지만, 책상에 앉힐 친구는 직접 골라요. 어떤 친구든 같은 방식으로 잔량과 캐시 타이밍을 알려줘요.</p>
+        <div class="charpick">
+          <figure class="chip-c"><img src="assets/float/panda.png" alt="판다" /><figcaption>판다</figcaption></figure>
+          <figure class="chip-c"><img src="assets/float/cat.png" alt="고양이" /><figcaption>고양이</figcaption></figure>
+          <figure class="chip-c"><img src="assets/float/dog.png" alt="강아지" /><figcaption>강아지</figcaption></figure>
+          <figure class="chip-c"><img src="assets/float/hamster.png" alt="햄스터" /><figcaption>햄스터</figcaption></figure>
+          <figure class="chip-c"><img src="assets/float/hippo.png" alt="하마" /><figcaption>하마</figcaption></figure>
+          <figure class="chip-c"><img src="assets/float/chick.png" alt="병아리" /><figcaption>병아리</figcaption></figure>
         </div>
-        <figure>
-          <div class="shot">
-            <div>
-              <span class="tag">여기에 이미지</span><br />
-              설정 창 — 계정 카드 + 쿠키 입력 폼 (Claude/Gemini 탭)
-              <span class="fname">docs/assets/shot-settings.png</span>
-              <div class="hint">⚠️ 쿠키 값이 화면에 안 보이는 상태로 캡처해 주세요</div>
-            </div>
-          </div>
-          <img
-            class="real"
-            src="assets/shot-settings.png"
-            alt="설정 창 — 멀티 계정과 쿠키 등록 폼"
-            style="display: none"
-            onload="this.style.display='block'; this.previousElementSibling.style.display='none';"
-          />
-          <figcaption>설정 창 — 멀티 계정 + 쿠키 등록</figcaption>
-        </figure>
       </div>
     </section>
 
     <!-- FEATURES -->
     <section id="features">
       <div class="wrap">
-        <h2>어떤 기능이 있나</h2>
-        <p class="section-lead">메뉴바에 살면서 토큰을 대신 지켜봐요.</p>
-        <div class="grid">
+        <p class="eyebrow">Solution</p>
+        <h2>메뉴바에 사는 작은 토큰 비서</h2>
+        <p class="lead">한 번 등록하면 30초마다 알아서 갱신하고, 잔량과 캐시 타이밍을 캐릭터로 보여줘요.</p>
+        <div class="grid-feat">
           <div class="card">
             <div class="ico">📊</div>
             <h3>메뉴바 라이브 표시</h3>
@@ -357,7 +1603,7 @@
           <div class="card">
             <div class="ico">🖱️</div>
             <h3>자유로운 배치</h3>
-            <p>화면을 가리지 않고 클릭 앤 드래그로 어디든 이동. 빈 공간 클릭은 통과.</p>
+            <p>화면을 가리지 않고 클릭 앤 드래그로 어디든. 빈 공간 클릭은 통과.</p>
           </div>
           <div class="card">
             <div class="ico">👥</div>
@@ -365,34 +1611,63 @@
             <p>Claude·Gemini 계정을 여러 개 등록하고 카드 클릭으로 즉시 전환.</p>
           </div>
         </div>
+        <figure>
+          <div class="shot">
+            <div>
+              <span class="tag">여기에 이미지</span><br />
+              데스크톱에 떠 있는 판다 펫 + 메뉴바 잔량 표시
+              <span class="fname">docs/assets/shot-desktop.png</span>
+              <div class="hint">이 이름으로 저장하면 자동으로 표시돼요</div>
+            </div>
+          </div>
+          <img class="real" src="assets/shot-desktop.png" alt="실행 중인 토큰 판다 — 데스크톱 펫과 메뉴바 잔량" style="display:none"
+               onload="this.style.display='block'; this.previousElementSibling.style.display='none';" />
+          <figcaption>실행 중인 토큰 판다 (데스크톱 + 메뉴바)</figcaption>
+        </figure>
+      </div>
+    </section>
 
-        <h2 style="margin-top:56px">잔량 따라 변하는 표정</h2>
-        <p class="section-lead">5시간 토큰 잔량에 따라 8단계로 외형과 동작이 바뀌어요.</p>
-        <div class="states">
-          <div class="state"><img src="assets/panda-cheerful.png" alt="" /><span>여유</span></div>
-          <div class="state"><img src="assets/panda-idle.png" alt="" /><span>보통</span></div>
-          <div class="state"><img src="assets/panda-sit.png" alt="" /><span>앉음</span></div>
-          <div class="state"><img src="assets/panda-tired.png" alt="" /><span>지침</span></div>
-          <div class="state"><img src="assets/panda-sleepy.png" alt="" /><span>졸림</span></div>
-          <div class="state"><img src="assets/panda-dead.png" alt="" /><span>방전</span></div>
+    <!-- SETUP -->
+    <section id="setup" class="problem">
+      <div class="wrap">
+        <p class="eyebrow">Setup</p>
+        <h2>3단계면 끝</h2>
+        <p class="lead">처음 한 번만 등록하면 30초마다 자동으로 갱신돼요.</p>
+        <div class="steps">
+          <div class="step">
+            <div class="num">1</div>
+            <div>
+              <h3>캐릭터 고르기</h3>
+              <p>데스크톱 모서리에 앉을 친구를 고릅니다 (판다 · 고양이 · 햄스터). 나중에 <code>설정</code>에서 변경 가능.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="num">2</div>
+            <div>
+              <h3>서비스 선택 — Claude 또는 Gemini</h3>
+              <p>새 계정 추가에서 <strong>Claude</strong> 또는 <strong>Gemini</strong> 탭을 고릅니다. 두 서비스 모두 세션 쿠키 한 줄로 연동.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="num">3</div>
+            <div>
+              <h3>쿠키 붙여넣기</h3>
+              <p>안내대로 DevTools → Network 탭에서 <code>cookie:</code> 한 줄을 복사해 붙여넣으면 끝. <strong>테스트</strong> 버튼으로 즉시 확인. (Claude는 자동 가져오기도 지원)</p>
+            </div>
+          </div>
         </div>
         <figure>
           <div class="shot">
             <div>
-              <span class="tag">여기에 GIF</span><br />
-              캐시 Hit(노란 폭죽) / Miss(푸른 비) 이펙트 모션
-              <span class="fname">docs/assets/shot-cache.gif</span>
-              <div class="hint">GIF 권장 (Gifski). 동영상이면 mp4로 주면 &lt;video&gt;로 바꿔줄게요</div>
+              <span class="tag">여기에 이미지</span><br />
+              설정 창 — 계정 카드 + 쿠키 입력 폼 (Claude/Gemini 탭)
+              <span class="fname">docs/assets/shot-settings.png</span>
+              <div class="hint">⚠️ 쿠키 값이 화면에 안 보이는 상태로 캡처해 주세요</div>
             </div>
           </div>
-          <img
-            class="real"
-            src="assets/shot-cache.gif"
-            alt="캐시 Hit/Miss 이펙트 모션"
-            style="display: none"
-            onload="this.style.display='block'; this.previousElementSibling.style.display='none';"
-          />
-          <figcaption>캐시 결과 시각화 — Hit 폭죽 / Miss 비</figcaption>
+          <img class="real" src="assets/shot-settings.png" alt="설정 창 — 멀티 계정과 쿠키 등록 폼" style="display:none"
+               onload="this.style.display='block'; this.previousElementSibling.style.display='none';" />
+          <figcaption>설정 창 — 멀티 계정 + 쿠키 등록</figcaption>
         </figure>
       </div>
     </section>
@@ -400,37 +1675,39 @@
     <!-- TRAY MODES -->
     <section id="modes">
       <div class="wrap">
+        <p class="eyebrow">Display Modes</p>
         <h2>표시 모드</h2>
-        <p class="section-lead">메뉴바에 무엇을 보여줄지 골라요 (메뉴바 메뉴에서 전환).</p>
+        <p class="lead">메뉴바에 무엇을 보여줄지 골라요. 메뉴바 메뉴에서 한 번에 전환.</p>
         <div class="modes">
           <div class="mode">
             <span class="pill">5h 42%</span>
-            <p><strong>5시간</strong> — 5시간 창의 잔량만 간결하게.</p>
+            <p><b>5시간</b> — 5시간 창의 잔량만 간결하게.</p>
           </div>
           <div class="mode">
             <span class="pill">5h 42% · 주 88%</span>
-            <p><strong>5시간 + 주간</strong> — 5시간과 주간 한도를 함께.</p>
+            <p><b>5시간 + 주간</b> — 5시간과 주간 한도를 함께.</p>
           </div>
           <div class="mode">
             <span class="pill">5h 42% · 주 88% · $12</span>
-            <p><strong>5시간 + 주간 + $</strong> — prepaid 잔액까지 (Claude, platform 연동 시).</p>
+            <p><b>5시간 + 주간 + $</b> — prepaid 잔액까지 (Claude, platform 연동 시).</p>
           </div>
         </div>
-        <p style="margin-top:18px; color:var(--muted); font-size:14px">
+        <p style="margin-top:20px; color:var(--muted); font-size:14.5px">
           메뉴바 대나무 아이콘은 잔량에 따라 줄기 수가 변해요 — 75%↑ 4줄기 · 50%↑ 3줄기 · 25%↑ 2줄기 · 25%↓ 1줄기.
         </p>
       </div>
     </section>
 
     <!-- ACCOUNTS -->
-    <section id="accounts">
+    <section id="accounts" class="problem">
       <div class="wrap">
-        <h2>계정 전환 · 멀티 서비스</h2>
-        <p class="section-lead">Claude와 Gemini를 한 펫에서 오가며 봐요.</p>
-        <p>
-          계정을 여러 개 등록해두고 설정의 <strong>계정 카드를 클릭</strong>하면 활성 계정이
-          바뀌고, 메뉴바 잔량·펫 캐릭터·폴링 자격증명이 한 번에 그 계정으로 전환돼요.
-          서비스마다 인증 방식이 달라도 같은 "쿠키 한 줄" UX로 통일했습니다.
+        <p class="eyebrow">Multi-service</p>
+        <h2>Claude와 Gemini, 한 펫에서</h2>
+        <p class="lead">계정을 여러 개 등록해두고 카드 클릭으로 즉시 전환.</p>
+        <p style="font-size:16.5px">
+          설정의 <strong>계정 카드를 클릭</strong>하면 활성 계정이 바뀌고, 메뉴바 잔량·펫
+          캐릭터·폴링 자격증명이 한 번에 그 계정으로 전환돼요. 서비스마다 인증 방식이
+          달라도 같은 "쿠키 한 줄" UX로 통일했습니다.
         </p>
         <div class="providers">
           <span class="pchip on">🟣 Claude</span>
@@ -446,13 +1723,8 @@
               <div class="hint">계정 카드 줄만 — 폼은 닫힌 상태로 캡처 권장</div>
             </div>
           </div>
-          <img
-            class="real"
-            src="assets/shot-accounts.png"
-            alt="멀티 계정 카드 — Claude와 Gemini"
-            style="display: none"
-            onload="this.style.display='block'; this.previousElementSibling.style.display='none';"
-          />
+          <img class="real" src="assets/shot-accounts.png" alt="멀티 계정 카드 — Claude와 Gemini" style="display:none"
+               onload="this.style.display='block'; this.previousElementSibling.style.display='none';" />
           <figcaption>멀티 계정 카드 — 클릭으로 활성 전환</figcaption>
         </figure>
       </div>
@@ -461,9 +1733,10 @@
     <!-- UPDATE -->
     <section id="update">
       <div class="wrap">
+        <p class="eyebrow">Always Fresh</p>
         <h2>새로고침 · 자동 업데이트</h2>
-        <p class="section-lead">한 번 켜두면 알아서 최신을 유지해요.</p>
-        <div class="grid">
+        <p class="lead">한 번 켜두면 알아서 최신을 유지해요.</p>
+        <div class="grid-feat">
           <div class="card">
             <div class="ico">🔄</div>
             <h3>30초 자동 폴링</h3>
@@ -472,14 +1745,27 @@
           <div class="card">
             <div class="ico">🔌</div>
             <h3>연결 끊김 자동 감지</h3>
-            <p>쿠키가 만료되면 판다가 '연결 실패' 표지판을 들고, 설정 창이 자동으로 열려 새 쿠키를 요청. (Gemini는 회전 토큰을 자동 갱신해 오래 켜둬도 유지)</p>
+            <p>쿠키 만료 시 판다가 '연결 실패' 표지판을 들고, 설정 창이 자동으로 열려 새 쿠키를 요청. (Gemini는 회전 토큰을 자동 갱신)</p>
           </div>
           <div class="card">
             <div class="ico">🆕</div>
             <h3>앱 자동 업데이트</h3>
-            <p>새 버전이 나오면 트레이 헤더에 🆕 마커가 뜨고, 클릭 한 번으로 최신 버전을 받아 설치.</p>
+            <p>새 버전이 나오면 트레이 헤더에 🆕 마커가 뜨고, 클릭 한 번으로 최신 버전을 설치.</p>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="final">
+      <div class="wrap">
+        <h2>지금, 판다에게 맡겨보세요</h2>
+        <p>다운로드하고 쿠키 한 줄만 등록하면 끝. 토큰 한도는 이제 판다가 지켜봅니다.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">macOS .dmg 다운로드</a>
+          <a class="btn btn-ghost" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">Windows .exe 다운로드</a>
+        </div>
+        <p class="platforms">macOS 11+ · Windows 11 x64 · 무료 · 오픈소스 (MIT)</p>
       </div>
     </section>
 
@@ -493,5 +1779,235 @@
         <p>made with 🐼 by JohnPrk</p>
       </div>
     </footer>
+
+    <script>
+      // ── 마을 씬 엔진 ─────────────────────────────────────────────────────
+      //  길 위 마을 사람(.vil)을 data-path(발끝 0~1 좌표열) 따라, 한 바퀴(loop 초)
+      //  내내 뷰어 쪽으로 달려오게 한다(원근 스케일 hs→he). 가까워질수록 정보가
+      //  단계로 공개된다: 말풍선만(⏳) → ⏳+타이머 → 질문 카드 (.qcard data-lod 1~4)
+      //  + 거리 불투명도(0.3 → 0.8 → 1). 앞에 닿으면 캐시 히트로 전망대
+      //  강아지(.rester)가 잠깐 환호. .tnum/.rtime 은 캐시 유지 카운트다운.
+      (function () {
+        var hamlet = document.querySelector(".hamlet");
+        if (!hamlet) return;
+        var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        function parsePath(s) {
+          return (s || "").trim().split(/\s+/).filter(Boolean).map(function (p) {
+            var a = p.split(","); return { x: parseFloat(a[0]), y: parseFloat(a[1]) };
+          });
+        }
+        function lerp(a, b, t) { return a + (b - a) * t; }
+        function alongPath(pts, t) {
+          if (pts.length < 2) return pts[0] || { x: 0.5, y: 0.6 };
+          var segs = pts.length - 1;
+          var f = Math.min(0.999999, Math.max(0, t)) * segs;
+          var i = Math.floor(f), lt = f - i;
+          return { x: lerp(pts[i].x, pts[i + 1].x, lt), y: lerp(pts[i].y, pts[i + 1].y, lt) };
+        }
+        function fmt(sec) {
+          sec = Math.max(0, Math.ceil(sec));
+          var m = Math.floor(sec / 60), s = sec % 60;
+          return m + ":" + (s < 10 ? "0" + s : s);
+        }
+
+        var box = { w: 0, h: 0 };
+        function measure() { var r = hamlet.getBoundingClientRect(); box.w = r.width; box.h = r.height; }
+        measure();
+
+        var vils = [].slice.call(hamlet.querySelectorAll(".vil")).map(function (el) {
+          var path = parsePath(el.getAttribute("data-path"));
+          if (!path.length) {
+            var hx = parseFloat(el.getAttribute("data-hx")), hy = parseFloat(el.getAttribute("data-hy"));
+            if (!isNaN(hx) && !isNaN(hy)) path = [{ x: hx, y: hy }];
+          }
+          var hs = parseFloat(el.getAttribute("data-hs")); if (isNaN(hs)) hs = 1;
+          var he = parseFloat(el.getAttribute("data-he")); if (isNaN(he)) he = hs;
+          var tnumEl = el.querySelector(".tnum");
+          var loop = parseFloat(el.getAttribute("data-loop"));
+          if (isNaN(loop)) {
+            var t0 = (tnumEl ? tnumEl.textContent : "0:30").trim().split(":");
+            loop = (parseInt(t0[0], 10) || 0) * 60 + (parseInt(t0[1], 10) || 30);
+          }
+          return {
+            el: el, path: path, hs: hs, he: he, loop: loop,
+            delay: parseFloat(el.getAttribute("data-delay")) || 0,
+            tnum: tnumEl, qcard: el.querySelector(".qcard"),
+            runStart: 0, hitUntil: 0, cycles: 0
+          };
+        });
+
+        var rester = document.querySelector(".rester");
+        var rtime = document.querySelector(".rester .rtime");
+
+        // loopT(0~1) 한 바퀴 = 길 시작점(뒤)에서 앞(뷰어)까지의 여정. runStart=0
+        // 이라 한 바퀴 내내 연속해서 달려온다(loop 초가 곧 접근 시간: 햄스터 30s·오리 90s).
+        function place(v, loopT) {
+          var runT = v.runStart >= 1 ? 0 : Math.max(0, (loopT - v.runStart) / (1 - v.runStart));
+          var foot = alongPath(v.path, runT);
+          var s = lerp(v.hs, v.he, runT);
+          v.el.style.transform =
+            "translate(" + (foot.x * box.w).toFixed(1) + "px," + (foot.y * box.h).toFixed(1) + "px) scale(" + s.toFixed(3) + ")";
+          // 앞에 가까운(=크게 보이는) 동물일수록 z-index 를 높여, 그 동물의 말풍선이
+          // 뒤 동물 위로 겹쳐 올라오게 한다.
+          v.el.style.zIndex = String(10 + Math.round(s * 100));
+          // 깊이별 점진 공개: 뒤(작게)일수록 최소 카드, 앞으로 올수록 풀 카드.
+          // lod 1 = 등장 → 2 = ⏳ 아이콘만 → 3 = ⏳+타이머 → 4 = 질문 카드.
+          var lod;
+          if (runT < 0.12)      lod = 1;
+          else if (runT < 0.45) lod = 2;
+          else if (runT < 0.72) lod = 3;
+          else                  lod = 4;
+          if (v.qcard) {
+            v.qcard.setAttribute("data-lod", String(lod));
+            // 말풍선이 동물 스케일을 따라 같이 커지지 않도록 역스케일(1/s) → 항상 같은 크기.
+            v.qcard.style.transform = "translateX(-50%) scale(" + (1 / s).toFixed(3) + ")";
+          }
+          // 불투명도는 거리와 무관하게, 등장 직후 0.5초 만에 또렷해지는 짧은 페이드인.
+          // (예전엔 멀수록 흐릿하게 깔려 너무 천천히 떠오르는 느낌이었다.)
+          var op = Math.min(1, (loopT * v.loop) / 0.5);
+          v.el.style.opacity = op.toFixed(2);
+          var phase = v.hitUntil > 0 ? "hit" : (runT > 0.02 ? "run" : "");
+          if (phase) v.el.setAttribute("data-phase", phase);
+          else v.el.removeAttribute("data-phase");
+          if (v.tnum) v.tnum.textContent = fmt(v.loop * (1 - loopT));
+        }
+
+        vils.forEach(function (v) { place(v, 0); });
+        hamlet.classList.add("ready");
+        // 대장 판다의 다독임 말풍선 ON — m1/m2 두 문구가 CSS 로 번갈아 크로스페이드.
+        hamlet.setAttribute("data-alarm", "on");
+
+        var rz;
+        window.addEventListener("resize", function () {
+          clearTimeout(rz);
+          rz = setTimeout(function () {
+            measure();
+            if (reduce) vils.forEach(function (v) { place(v, 0.94); v.el.removeAttribute("data-phase"); });
+          }, 120);
+        });
+
+        if (reduce) {
+          vils.forEach(function (v) { place(v, 0.94); v.el.removeAttribute("data-phase"); });
+          return;
+        }
+
+        var start = null;
+        var dogCyc = 0;
+        var DOG_PERIOD = 60; // 강아지 캐시 사이클: 5:00에서 1분 흘러 4:00에 닿으면 히트 → 5:00 리셋
+        function frame(ts) {
+          if (start === null) start = ts;
+          var elapsed = (ts - start) / 1000;
+          vils.forEach(function (v) {
+            var local = elapsed - v.delay;
+            if (local < 0) return;
+            var cyc = Math.floor(local / v.loop);
+            if (cyc > v.cycles) { v.cycles = cyc; v.hitUntil = elapsed + 0.8; }
+            if (v.hitUntil && elapsed > v.hitUntil) v.hitUntil = 0;
+            place(v, (local % v.loop) / v.loop);
+          });
+          if (rester) {
+            // 강아지는 villager 도착과 무관하게 자기 1분 캐시 사이클을 돈다:
+            // 5:00에서 시작해 4:00에 닿는 순간 캐시 히트(🎉)로 잠깐 환호하고 5:00으로 리셋.
+            var dc = Math.floor(elapsed / DOG_PERIOD);
+            if (dc > dogCyc) {
+              dogCyc = dc;
+              rester.classList.add("hit");
+              clearTimeout(rester._t);
+              rester._t = setTimeout(function () { rester.classList.remove("hit"); }, 800);
+            }
+            if (rtime) rtime.textContent = fmt(300 - (elapsed % DOG_PERIOD));
+          }
+          requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+      })();
+    </script>
+
+    <script>
+      // 머리 위 캐시 타이머: 5:00 → 0:00 카운트다운 + 링 드레인 (루프)
+      (function () {
+        var num = document.querySelector(".ct-num");
+        var prog = document.querySelector(".ct-prog");
+        if (!num || !prog) return;
+        var CIRC = 2 * Math.PI * 15, TOTAL = 300;
+        prog.style.strokeDasharray = CIRC.toFixed(2);
+        if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          num.textContent = "4:32";
+          prog.style.strokeDashoffset = (CIRC * 0.27).toFixed(2);
+          return;
+        }
+        var start = null;
+        function frame(ts) {
+          if (start === null) start = ts;
+          var el = ((ts - start) / 1000) % TOTAL;
+          var rem = Math.ceil(TOTAL - el);
+          var m = Math.floor(rem / 60), s = rem % 60;
+          num.textContent = m + ":" + (s < 10 ? "0" + s : s);
+          prog.style.strokeDashoffset = (CIRC * (el / TOTAL)).toFixed(2);
+          requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+      })();
+    </script>
+    <script>
+      // ── prompt-cache 체이닝 상태머신 (왼→오) ───────────────────────────
+      //  대화창(아래)에서 주고받은 질문·답변이 위 캐시에 왼쪽→오른쪽 순서로 이어 붙는다.
+      //  프롬프트는 곧 이 순서의 토큰 열이라, 캐시는 '왼쪽 접두사'를 재사용(read)하고
+      //  새로 더한 '오른쪽'만 기록(write)한다. (공식 문서 확인) 방금 받은 답변은 그
+      //  즉시 캐시되지 않고, 다음 메시지를 보낼 때 그 질문과 함께 올라간다 — 그래서
+      //  최신 답변은 캐시 칩엔 아직 없고 대화창에 떠 있다.
+      //  칩 7개: [Q1,A1,Q2,A2,Q3,A3,Q4]. 상태: w=새로 기록 · r=재사용 · _=아직 없음.
+      (function () {
+        var fig = document.querySelector(".cacheflow");
+        if (!fig) return;
+        var verdict = fig.querySelector(".cf-verdict");
+        var thread = fig.querySelector(".cf-thread");
+        var items = [].slice.call(fig.querySelectorAll(".cf-ex"));
+        var chatQ = fig.querySelector(".cf-chat-qt");
+        var chatA = fig.querySelector(".cf-chat-at");
+        var roles = ["q", "a", "q", "a", "q", "a", "q"];
+        var CX0 = 80.5, STEP = 94;   // 첫 칩 중심 · 칩 간격(왼→오)
+        var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        var beats = [
+          { q: "🙂 PR 리뷰 코멘트 분석해줘", a: "🐼 코멘트 분석 결과 정리…", v: "miss",
+            vt: "맥락 저장 · cache_write 10,000 토큰",
+            st: ["w", "_", "_", "_", "_", "_", "_"] },
+          { q: "🙂 'DuplicateKeyException' 뜻이 뭐야?", a: "🐼 중복 키 예외라고 설명…", v: "hit",
+            vt: "맥락 재사용 · 새 메시지 cache_write 2,000 토큰",
+            st: ["r", "w", "w", "_", "_", "_", "_"] },
+          { q: "🙂 이 함수 고치면 될까?", a: "🐼 이렇게 고치자고 제안…", v: "hit",
+            vt: "맥락 재사용 · 새 메시지 cache_write 1,000 토큰",
+            st: ["r", "r", "r", "w", "w", "_", "_"] },
+          { q: "🙂 커밋 푸시하고 답변 달아줘", a: "🐼 커밋·답변 정리…", v: "hit",
+            vt: "맥락 재사용 · 새 메시지 cache_write 1,500 토큰",
+            st: ["r", "r", "r", "r", "r", "w", "w"] }
+        ];
+
+        var STATE = { w: " st-write", r: " st-read", _: "" };
+
+        function render(idx) {
+          var b = beats[idx];
+          if (verdict) verdict.textContent = b.vt;
+          fig.setAttribute("data-verdict", b.v);
+
+          var last = -1;
+          items.forEach(function (g, i) {
+            g.setAttribute("class", "cf-ex role-" + roles[i] + STATE[b.st[i]]);
+            if (b.st[i] !== "_") last = i;
+          });
+          if (thread) thread.setAttribute("x2", last < 0 ? CX0 : CX0 + STEP * last);
+
+          if (chatQ) chatQ.textContent = b.q;
+          if (chatA) chatA.textContent = b.a;
+        }
+
+        if (reduce) { render(3); return; }
+        var i = 0;
+        render(0);
+        setInterval(function () { i = (i + 1) % beats.length; render(i); }, 2800);
+      })();
+    </script>
   </body>
 </html>
