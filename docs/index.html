@@ -3,16 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>토큰 판다 (Token Panda) — Claude·Gemini 토큰을 대신 알려주는 데스크톱 펫</title>
+    <title>토큰 지키미 (Token Guardian) — Claude·Gemini 토큰을 대신 알려주는 데스크톱 지키미</title>
     <meta
       name="description"
-      content="데스크톱 한구석에서 Claude·Gemini 토큰이 얼마 남았는지 대신 알려주는 작은 판다. 5분 캐시 골든타임을 놓치지 않게 챙겨 토큰을 아껴 쓰게 돕는 메뉴바 펫."
+      content="데스크톱 한구석에서 Claude·Gemini 토큰이 얼마 남았는지 대신 알려주는 작은 지키미(펫). 5분 캐시 골든타임을 놓치지 않게 챙겨 토큰을 아껴 쓰게 돕는 메뉴바 지키미."
     />
     <link rel="icon" href="assets/favicon.svg" />
-    <meta property="og:title" content="토큰 판다 (Token Panda)" />
+    <meta property="og:title" content="토큰 지키미 (Token Guardian)" />
     <meta
       property="og:description"
-      content="Claude·Gemini 토큰이 얼마 남았는지 대신 알려주는 데스크톱 펫. 5분 캐시 골든타임 알림으로 토큰을 아껴 쓰세요."
+      content="Claude·Gemini 토큰이 얼마 남았는지 대신 알려주는 데스크톱 지키미. 5분 캐시 골든타임 알림으로 토큰을 아껴 쓰세요."
     />
     <meta property="og:image" content="assets/icon.png" />
     <meta property="og:type" content="website" />
@@ -155,7 +155,7 @@
       @keyframes drift2 { 0%,100% { transform: translateX(24px); } 50% { transform: translateX(-24px); } }
 
       /* airship — 사진 배경이 .sun/.cloud 를 대체하며 비어버린 상단 하늘에, 씬의
-         의미("캐시 식기 전에 펫이 달려와 답을 재촉")를 알리는 광고 비행선을 띄운다.
+         의미("캐시 식기 전에 지키미가 달려와 답을 재촉")를 알리는 광고 비행선을 띄운다.
          땅에선 마을 사람들이 그 급함을 '연기'하고(달리기), 하늘은 그 이유를 차분히
          '해설'하는 역할 분담. 순수 CSS: 좌→우 드리프트 + 위아래 살랑(bob) + 배너 흔들림.
          JS 훅 없음. reduced-motion 일 땐 한 곳에 멈춘다(아래 미디어쿼리). */
@@ -963,7 +963,7 @@
       }
       .mbar .mb-sys { color: #cfc8ec; font-size: 13px; }
       .mbar .mb-time { color: #e9e4ff; font-variant-numeric: tabular-nums; }
-      /* ── "show" — 잔량·펫을 어디에 두고 어떻게 챙기는지 2×2 카드 ── */
+      /* ── "show" — 잔량·지키미를 어디에 두고 어떻게 챙기는지 2×2 카드 ── */
       /* 칸 너비·높이는 위 #timer 의 .twpanel 과 동일(2열 풀폭 + 박스 386px) */
       .show4 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 30px; }
       @media (max-width: 700px) { .show4 { grid-template-columns: 1fr; } }
@@ -981,7 +981,7 @@
         box-shadow: var(--shadow);
         display: flex; align-items: center; justify-content: center;
       }
-      /* 둥실둥실 떠다니는 펫(고양이·강아지) — 말풍선/칩과 한 덩어리로 부유 */
+      /* 둥실둥실 떠다니는 지키미(고양이·강아지) — 말풍선/칩과 한 덩어리로 부유 */
       @keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
       .show-petwrap { display: flex; flex-direction: column; align-items: center;
         animation: floaty 3.4s ease-in-out infinite; }
@@ -1013,7 +1013,7 @@
       .ub-reset { font-size: 9px; color: #999; white-space: nowrap; font-variant-numeric: tabular-nums;
         margin-left: auto; padding-left: 10px; flex-shrink: 0; }
 
-      /* 펫 보이기/숨기기 칩 — 강아지 위에 떠 있는 작은 메뉴 토글 */
+      /* 지키미 보이기/숨기기 칩 — 강아지 위에 떠 있는 작은 메뉴 토글 */
       .show-chip {
         position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 7px;
         background: rgba(255,255,255,0.96); border: 1px solid #ddd; border-radius: 999px;
@@ -1072,7 +1072,7 @@
         background: rgba(250,250,252,0.98); border: 1px solid rgba(0,0,0,0.10); border-radius: 9px;
         padding: 5px; box-shadow: 0 16px 40px rgba(30,20,60,0.26);
       }
-      /* 클릭 후 설정 메뉴 항목 위로 옮겨간 커서 (③ 펫 보이기/숨기기 · ④ 5시간+주간) */
+      /* 클릭 후 설정 메뉴 항목 위로 옮겨간 커서 (③ 지키미 보이기/숨기기 · ④ 5시간+주간) */
       .mm-item .menu-cursor { position: absolute; z-index: 6; right: 16px; top: 9px; width: 16px; height: auto;
         filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); animation: clicktap 2.6s ease-in-out infinite; }
       @keyframes clicktap { 0%, 100% { transform: translate(0,0); } 14% { transform: translate(2px,2px); } }
@@ -1100,7 +1100,7 @@
         animation: floaty 3.7s ease-in-out infinite; animation-delay: 0.2s; }
       @media (prefers-reduced-motion: reduce) { .desk-petgrp { animation: none; } }
       .desk-pet-img { width: 84px; height: auto; filter: drop-shadow(0 11px 15px rgba(40,20,80,0.18)); }
-      /* ③ 펫 보이기/숨기기 — 클릭하면 펫이 나타났다(스케일 업) 사라졌다(스케일 다운), 커서 탭과 동기화 */
+      /* ③ 지키미 보이기/숨기기 — 클릭하면 지키미가 나타났다(스케일 업) 사라졌다(스케일 다운), 커서 탭과 동기화 */
       .desk-pet.dp-toggle { left: 16px; margin-left: 0; width: 80px; z-index: 6; transform-origin: center bottom;
         animation: petToggle 4s ease-in-out infinite; }
       @keyframes petToggle {
@@ -1131,7 +1131,7 @@
         78%,100% { transform: translate(0,0); }
       }
 
-      /* ④ 크기 조절 데모 — 바탕화면(클로드 앱 + 파인더 스크린샷) 위에서 펫·잔량을 드래그로 함께 스케일 */
+      /* ④ 크기 조절 데모 — 바탕화면(클로드 앱 + 파인더 스크린샷) 위에서 지키미·잔량을 드래그로 함께 스케일 */
       .deskscene { padding: 0; align-items: stretch; justify-content: stretch;
         background: linear-gradient(165deg, #c9d4f3 0%, #d9d2f0 48%, #efdfeb 100%); }
       .deskscene .dw { position: absolute; border-radius: 10px; overflow: hidden; background: #fff;
@@ -1166,7 +1166,7 @@
       /* 바탕화면 좌측 아래로 내려간 파인더 창(실제 스크린샷) — 클로드 창 뒤로 살짝 보임 */
       .desk-shot { position: absolute; left: 0; top: 120px; width: 96px; height: auto; z-index: 2;
         border-radius: 7px; filter: drop-shadow(0 10px 18px rgba(30,20,60,0.30)); }
-      /* 펫 + 잔량 한 덩어리 — 드래그로 함께 커지고 작아지고, 화면 이곳저곳으로 옮겨 다님(핸들/커서가 그룹에 묶여 따라감) */
+      /* 지키미 + 잔량 한 덩어리 — 드래그로 함께 커지고 작아지고, 화면 이곳저곳으로 옮겨 다님(핸들/커서가 그룹에 묶여 따라감) */
       .resize-grp { position: absolute; left: 6px; top: 172px; z-index: 5; transform-origin: top left;
         animation: petResizeMove 7.5s cubic-bezier(0.55,0,0.3,1) infinite; will-change: transform; }
       .resize-grp .show-bubble.rb { min-width: 0; width: max-content; margin: 0 auto 5px; padding: 3px 8px; font-size: 10px; }
@@ -1308,13 +1308,13 @@
       .chip-c:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       /* 10 표정 그리드 (5×2) — 선택 캐릭터로 src 교체 */
       /* 선택창 ↔ 표정 사이 소설명 + 간격 */
-      /* 표정 인터랙티브: 큰 펫 1마리 + 5시간 잔량 슬라이더 (표정 갤러리 대체) */
+      /* 표정 인터랙티브: 큰 지키미 1마리 + 5시간 잔량 슬라이더 (표정 갤러리 대체) */
       .expr-demo { max-width: 560px; margin: 30px auto 0; }
       .expr-panel { background: #f3f0fb; border: 1px solid #e7e1f6; border-radius: var(--radius); padding: 30px 28px 26px; }
       .expr-stage { display: flex; flex-direction: column; align-items: center; gap: 14px; }
       .expr-petwrap { position: relative; width: 200px; height: 200px; }
       .expr-pet { width: 100%; height: 100%; object-fit: contain; display: block; }
-      /* 연결 끊김 — 앱과 동일: dead 펫 발끝에 "연결 실패" 표지판 (App.css 값 그대로), 기본 숨김 */
+      /* 연결 끊김 — 앱과 동일: dead 지키미 발끝에 "연결 실패" 표지판 (App.css 값 그대로), 기본 숨김 */
       .expr-petwrap .disc-sign {
         position: absolute; left: 50%; bottom: -2%;
         width: 122%; max-width: none; height: auto;
@@ -1371,7 +1371,8 @@
       .up-card { padding: 26px 26px 28px; border: 1px solid var(--line);
         border-radius: var(--radius); background: var(--card, #fff); }
       .up-card-ic { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center;
-        background: var(--accent-soft); font-size: 24px; margin-bottom: 16px; }
+        background: var(--accent-soft); color: var(--accent); margin-bottom: 16px; }
+      .up-card-ic svg { width: 24px; height: 24px; }
       .up-card-ic-poll { animation: pollPulse 2.6s ease-in-out infinite; }
       @keyframes pollPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
       .up-card h3 { margin: 0 0 8px; font-size: 16px; color: var(--ink); letter-spacing: -0.01em; }
@@ -1704,7 +1705,7 @@
       .ob-cursor.click::after { animation: ob-ping .42s ease-out; }
       @keyframes ob-ping { 0% { transform: scale(0); opacity: .85; } 100% { transform: scale(6); opacity: 0; } }
 
-      /* ── 엔딩: 셋업 완료 후 바탕화면에 펫 배치 ── */
+      /* ── 엔딩: 셋업 완료 후 바탕화면에 지키미 배치 ── */
       .ob-desktop {
         position: absolute; inset: 0; z-index: 40; border-radius: 12px; overflow: hidden;
         background: linear-gradient(155deg, #f4f2fd 0%, #ece8fa 42%, #e1dcf6 100%);
@@ -1746,7 +1747,7 @@
       .obd-input { flex: 0 0 auto; display: flex; align-items: center; margin: 10px 16px 16px; padding: 12px 16px; border: 1px solid #e7e3f3; border-radius: 13px; color: #9a98a2; font-size: 14px; }
       .obd-send { margin-left: auto; width: 27px; height: 27px; border-radius: 50%; background: #6b4bff; color: #fff; display: inline-grid; place-items: center; font-size: 14px; }
 
-      /* 모서리에 앉은 펫 + 잔량 말풍선 */
+      /* 모서리에 앉은 지키미 + 잔량 말풍선 */
       .obd-pet { position: absolute; left: 92px; bottom: 56px; z-index: 4; width: 188px; display: flex; flex-direction: column; align-items: center; gap: 9px; opacity: 0; transform: translateY(30px); transition: opacity .55s ease .42s, transform .7s cubic-bezier(.2, .8, .2, 1.2) .42s; }
       .ob-stage.show-desktop .obd-pet { opacity: 1; transform: none; }
       .obd-pet::after { content: ""; position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%); width: 124px; height: 22px; border-radius: 50%; background: radial-gradient(ellipse, rgba(40, 30, 80, .26), transparent 72%); z-index: -1; }
@@ -1861,7 +1862,7 @@
   <body>
     <nav>
       <div class="wrap">
-        <span class="brand"><img src="assets/icon.png" alt="" />토큰 판다</span>
+        <span class="brand"><img src="assets/icon.png" alt="" />토큰 지키미</span>
         <span class="nav-links">
           <a href="#problem">문제</a>
           <a href="#timer">타이머</a>
@@ -1878,7 +1879,7 @@
       <div class="wrap hero-copy">
         <h1>토큰 얼마 남았는지, <span class="grad">더는 안 봐도 돼요!</span></h1>
         <p class="tagline">
-          데스크톱 한구석의 작은 펫이 Claude·Gemini 토큰 잔량을 대신 알려줘요!
+          데스크톱 한구석의 작은 지키미(펫)가 Claude·Gemini 토큰 잔량을 대신 알려줘요!
           5분 캐시 골든타임도 놓치지 않게 챙겨줘서, 토큰을 아껴 쓸 수 있어요.
         </p>
       </div>
@@ -2334,11 +2335,11 @@
     <!-- TIMER VILLAGE -->
     <section id="timer">
       <div class="wrap">
-        <p class="eyebrow">판다는 이렇게 챙겨요 ① 타이밍</p>
+        <p class="eyebrow">지키미는 이렇게 챙겨요 ① 타이밍</p>
         <h2>질문을 보내면 5분 타이머가 생깁니다!</h2>
         <p class="lead">
           'claude.ai'에 메시지를 보내면 그 대화에 <b>5분짜리 캐시 타이머</b>가 생깁니다.
-          판다를 비롯한 내 펫은 <b>대화 카드</b>의 형태로 '<b>질문</b>과 <b>남은 시간</b>'을 시각화하여 보여줍니다.
+          판다를 비롯한 내 지키미는 <b>대화 카드</b>의 형태로 '<b>질문</b>과 <b>남은 시간</b>'을 시각화하여 보여줍니다.
           <b>새 대화(세션)</b>를 시작하면 카드가 위쪽에 하나씩 쌓여서, 여러 대화를 동시에 진행하더라도
           각 타이머의 남은 시간을 한눈에 볼 수 있습니다.
         </p>
@@ -2389,7 +2390,7 @@
     <!-- REMAINING — 메뉴바 표시 모드 스크롤 (core) -->
     <section id="remaining">
       <div class="wrap">
-        <p class="eyebrow">판다는 이렇게 챙겨요 ② 잔량</p>
+        <p class="eyebrow">지키미는 이렇게 챙겨요 ② 잔량</p>
         <h2>잔량은 원하는 대로 골라 띄웁니다</h2>
         <p class="lead">
           claude.ai 설정 페이지를 열 필요가 없습니다. 5시간 잔량, 주간 남은 양, API 충전 잔액 중
@@ -2415,8 +2416,8 @@
                 <img class="show-pet" src="assets/float/cat.png" alt="고양이 캐릭터 머리 위에 5시간·주간 잔량 말풍선이 떠 있는 모습" />
               </div>
             </div>
-            <h3 class="show-h">펫 머리 위에</h3>
-            <p class="show-p">펫 머리 위로 5시간·주간 잔량이 말풍선으로 뜹니다.</p>
+            <h3 class="show-h">지키미 머리 위에</h3>
+            <p class="show-p">지키미 머리 위로 5시간·주간 잔량이 말풍선으로 뜹니다.</p>
           </div>
 
           <!-- ② 메뉴바 한 칸에 + 표시 모드 (표시 모드에서 고르면 위 메뉴바 표시가 같이 바뀜) -->
@@ -2430,9 +2431,9 @@
                   <span class="mb-line"><img class="mb-tray" src="assets/tray-bamboo.png" alt="" />90%</span>
                 </span></span>
                   <div class="menumock">
-                    <div class="mm-head">토큰 판다 v2.22.0 <span class="mm-dim">(21:58 확인)</span></div>
+                    <div class="mm-head">토큰 지키미 v2.22.0 <span class="mm-dim">(21:58 확인)</span></div>
                     <div class="mm-sep"></div>
-                    <div class="mm-item">펫 보이기/숨기기</div>
+                    <div class="mm-item">지키미 보이기/숨기기</div>
                     <div class="mm-item">지금 새로고침 <span class="mm-ic">↻</span></div>
                     <div class="mm-item mm-on">표시 모드<span class="mm-arrow">›</span>
                       <div class="mm-sub mm-sub-sync">
@@ -2462,15 +2463,15 @@
             <p class="show-p">설정 메뉴의 <b>표시 모드</b>에서 고른 항목이 곧바로 메뉴바 한 칸에 뜹니다.</p>
           </div>
 
-          <!-- ③ 설정 메뉴에서 펫 보이기/숨기기 (커서가 항목으로) -->
+          <!-- ③ 설정 메뉴에서 지키미 보이기/숨기기 (커서가 항목으로) -->
           <div class="show-cell">
             <div class="show-box menubox">
               <div class="mbtop">
                 <span class="mb-token2"> 90%·주 55%·$13.42
                   <div class="menumock">
-                    <div class="mm-head">토큰 판다 v2.22.0 <span class="mm-dim">(21:58 확인)</span></div>
+                    <div class="mm-head">토큰 지키미 v2.22.0 <span class="mm-dim">(21:58 확인)</span></div>
                     <div class="mm-sep"></div>
-                    <div class="mm-item mm-on">펫 보이기/숨기기
+                    <div class="mm-item mm-on">지키미 보이기/숨기기
                       <svg class="menu-cursor mc-toggle" viewBox="0 0 12 19" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M1 1 L1 16 L5 12 L8 18 L10.2 17 L7.2 11 L11.4 11 Z" fill="#1a1a1a" stroke="#fff" stroke-width="1.1" stroke-linejoin="round"/></svg>
                     </div>
                     <div class="mm-item">지금 새로고침 <span class="mm-ic">↻</span></div>
@@ -2489,11 +2490,11 @@
               </div>
               <img class="desk-pet dp-toggle" src="assets/float/cat.png" alt="" />
             </div>
-            <h3 class="show-h">펫은 잠깐 숨기기</h3>
-            <p class="show-p">‘펫 보이기/숨기기’를 누르면 당신의 펫이 쏙 사라지고, 한 번 더 누르면 다시 나타납니다.</p>
+            <h3 class="show-h">지키미는 잠깐 숨기기</h3>
+            <p class="show-p">‘지키미 보이기/숨기기’를 누르면 당신의 지키미가 쏙 사라지고, 한 번 더 누르면 다시 나타납니다.</p>
           </div>
 
-          <!-- ④ 크기 조절 — 바탕화면(클로드 대화창 + 파인더 스크린샷) 위에서 우하단 모서리를 드래그해 펫·잔량을 함께 키우고 줄임 -->
+          <!-- ④ 크기 조절 — 바탕화면(클로드 대화창 + 파인더 스크린샷) 위에서 우하단 모서리를 드래그해 지키미·잔량을 함께 키우고 줄임 -->
           <div class="show-cell">
             <div class="show-box deskscene">
               <!-- 오른쪽 80%: 진행 중인 클로드 대화 -->
@@ -2513,7 +2514,7 @@
               </div>
               <!-- 왼쪽 10%: 바탕화면에 떠 있는 파인더 창(실제 스크린샷) -->
               <img class="desk-shot" src="assets/float/desk-finder.png" alt="바탕화면에 떠 있는 파인더 창" />
-              <!-- 그 아래 캐릭터 — 드래그로 펫·잔량 함께 스케일 -->
+              <!-- 그 아래 캐릭터 — 드래그로 지키미·잔량 함께 스케일 -->
               <div class="resize-grp">
                 <div class="show-bubble rb">
                   <div class="ub-row"><span class="ub-label">5h</span><span class="ub-pct">90%</span><span class="ub-reset">3시간 18분 후</span></div>
@@ -2527,7 +2528,7 @@
               </div>
             </div>
             <h3 class="show-h">키우고 줄이고, 어디든 옮기고</h3>
-            <p class="show-p">우하단 모서리를 잡고 끌면 펫과 머리 위 잔량이 함께 커지고 작아져요. 몸통을 잡으면 화면 어디로든 옮겨, 마음에 드는 자리에 자유롭게 놓을 수 있습니다.</p>
+            <p class="show-p">우하단 모서리를 잡고 끌면 지키미와 머리 위 잔량이 함께 커지고 작아져요. 몸통을 잡으면 화면 어디로든 옮겨, 마음에 드는 자리에 자유롭게 놓을 수 있습니다.</p>
           </div>
         </div>
       </div>
@@ -2536,11 +2537,11 @@
     <!-- CHARACTER STATES · 표정 -->
     <section id="states">
       <div class="wrap">
-        <p class="eyebrow">판다는 이렇게 챙겨요 ③ 표정 &amp; 펫</p>
-        <h2>펫을 고르면, 표정이 따라옵니다</h2>
+        <p class="eyebrow">지키미는 이렇게 챙겨요 ③ 표정 &amp; 지키미</p>
+        <h2>지키미를 고르면, 표정이 따라옵니다</h2>
         <p class="lead">
-          화면에 띄울 펫은 판다·고양이·강아지를 비롯한 <b>여섯 마리</b> 중에서 고를 수 있습니다.
-          고른 펫은 5시간 토큰이 줄어드는 만큼 <b>표정</b>이 단계별로 함께 바뀌기 때문에,
+          화면에 띄울 지키미는 판다·고양이·강아지를 비롯한 <b>여섯 마리</b> 중에서 고를 수 있습니다.
+          고른 지키미는 5시간 토큰이 줄어드는 만큼 <b>표정</b>이 단계별로 함께 바뀌기 때문에,
           숫자를 따로 확인하지 않아도 표정만 보고 지금 남은 양을 가늠할 수 있습니다.
         </p>
         <div class="charpick" id="charPick" role="tablist" aria-label="캐릭터 선택">
@@ -2551,12 +2552,12 @@
           <button type="button" class="chip-c" role="tab" aria-selected="false" data-char="hippo"><img src="assets/float/hippo.png" alt="" /><span class="cc-label">하마</span></button>
           <button type="button" class="chip-c" role="tab" aria-selected="false" data-char="chick"><img src="assets/float/chick.png" alt="" /><span class="cc-label">병아리</span></button>
         </div>
-        <!-- 인터랙티브: 5시간 잔량 슬라이더를 끌면 큰 펫 표정이 단계별로 바뀐다 (앱과 동일 매핑) -->
+        <!-- 인터랙티브: 5시간 잔량 슬라이더를 끌면 큰 지키미 표정이 단계별로 바뀐다 (앱과 동일 매핑) -->
         <div class="expr-demo" id="exprDemo" data-char="panda">
           <div class="expr-panel">
             <div class="expr-stage">
               <div class="expr-petwrap">
-                <img class="expr-pet" id="exprPet" src="assets/states/panda/cheerful.png" alt="펫 표정" />
+                <img class="expr-pet" id="exprPet" src="assets/states/panda/cheerful.png" alt="지키미 표정" />
                 <img class="disc-sign" src="assets/states/disconnected-sign.png" alt="" />
               </div>
               <div class="expr-readout">
@@ -2581,7 +2582,7 @@
             </button>
           </div>
         </div>
-        <p class="states-note">쿠키 만료와 상관없이 연결이 끊기거나 주간 한도가 0%(5h 한도는 정상)가 나오기도 합니다.<br /><strong>설정에서 새로고침</strong>하거나 <strong>펫을 우클릭</strong>하면 다시 연결됩니다.</p>
+        <p class="states-note">쿠키 만료와 상관없이 연결이 끊기거나 주간 한도가 0%(5h 한도는 정상)가 나오기도 합니다.<br /><strong>설정에서 새로고침</strong>하거나 <strong>지키미를 우클릭</strong>하면 다시 연결됩니다.</p>
       </div>
     </section>
 
@@ -2612,14 +2613,14 @@
             <div class="ob-frame" id="obFrame">
               <div class="ob-titlebar">
                 <span class="ob-dots"><i></i><i></i><i></i></span>
-                <span class="ob-title">토큰 판다 — 시작하기</span>
+                <span class="ob-title">토큰 지키미 — 시작하기</span>
               </div>
               <div class="onboarding-window">
                 <div class="onboarding-card">
                   <header class="onboarding-header">
-                    <h1>토큰 판다에 오신 걸 환영해요</h1>
+                    <h1>토큰 지키미에 오신 걸 환영해요</h1>
                     <p class="onboarding-sub">
-                      Claude의 가장 큰 단점은 토큰이 자주 부족하다는 것 — 토큰 판다는
+                      Claude의 가장 큰 단점은 토큰이 자주 부족하다는 것 — 토큰 지키미는
                       데스크톱 한 켠에 앉아 5시간/주간 잔량을 실시간으로 보여주고,
                       <strong> 캐시가 끊기기 전에 미리 알려줘서 토큰을 아낄 수 있게</strong> 도와줍니다.
                     </p>
@@ -2739,7 +2740,7 @@
                       ⚠️ Org ID + 쿠키는 본인 claude.ai 세션의 자격증명입니다. 외부에
                       유출되면 다른 사람이 사용량을 조회·소모할 수 있으니
                       <strong>공유하지 마세요.</strong>
-                      쿠키가 만료되면 토큰 판다가 자동으로 감지하고
+                      쿠키가 만료되면 토큰 지키미가 자동으로 감지하고
                       이 창을 다시 열어 새 쿠키를 요청합니다.
                     </div>
 
@@ -2818,10 +2819,10 @@
               </div>
             </div>
 
-            <!-- ③ 셋업 완료 — 바탕화면에 펫이 자리 잡는 엔딩 -->
+            <!-- ③ 셋업 완료 — 바탕화면에 지키미가 자리 잡는 엔딩 -->
             <div class="ob-desktop" id="obDesktop" aria-hidden="true">
               <div class="obd-bar">
-                <span class="obd-left"><span class="obd-brand"><img src="assets/icon.png" alt="" /><b>토큰 판다</b></span><span class="m">파일</span><span class="m">편집</span><span class="m">보기</span></span>
+                <span class="obd-left"><span class="obd-brand"><img src="assets/icon.png" alt="" /><b>토큰 지키미</b></span><span class="m">파일</span><span class="m">편집</span><span class="m">보기</span></span>
                 <span class="obd-right">
                   <span class="obd-tray"><img src="assets/tray-bamboo.png" alt="" />42%</span>
                   <span class="obd-time">오후 1:38</span>
@@ -2850,7 +2851,7 @@
                   <div class="obd-pill-row"><span class="l">5h</span><b>42%</b><span class="r">3시간 18분 후</span></div>
                   <div class="obd-pill-row"><span class="l">주간</span><b>18%</b><span class="r">1일 11시간 후</span></div>
                 </div>
-                <img class="obd-pet-img" src="assets/states/hamster/sit.png" alt="바탕화면 모서리에 앉은 햄스터 펫" />
+                <img class="obd-pet-img" src="assets/states/hamster/sit.png" alt="바탕화면 모서리에 앉은 햄스터 지키미" />
               </div>
 
               <div class="obd-toast">메뉴바와 바탕화면에 자리 잡았어요</div>
@@ -2874,7 +2875,7 @@
               <div class="ob-frame">
                 <div class="ob-titlebar">
                   <span class="ob-dots"><i></i><i></i><i></i></span>
-                  <span class="ob-title">토큰 판다 — 설정</span>
+                  <span class="ob-title">토큰 지키미 — 설정</span>
                 </div>
                 <div class="ob-settings">
                   <h2 class="obset-h">설정</h2>
@@ -3039,7 +3040,7 @@
               <div class="ob-frame">
                 <div class="ob-titlebar">
                   <span class="ob-dots"><i></i><i></i><i></i></span>
-                  <span class="ob-title">토큰 판다 — 설정</span>
+                  <span class="ob-title">토큰 지키미 — 설정</span>
                 </div>
                 <div class="ob-settings">
                   <h2 class="obset-h">설정</h2>
@@ -3120,7 +3121,7 @@
                         <div class="obp-tr"><span class="obp-key-name">ci-pipeline</span><span class="obp-key-hint">sk-ant-api03-…9KdL</span><span class="obp-key-cost">$0.53</span></div>
                         <div class="obp-tr"><span class="obp-key-name">test-key</span><span class="obp-key-hint">sk-ant-api03-…Qm2P</span><span class="obp-key-cost">$0.02</span></div>
                       </div>
-                      <p class="obp-note">콘솔은 키 목록과 비용을 별개 요청으로 받아 <code>key_id</code>로 조인해 이 컬럼을 그려요. 토큰 판다도 같은 두 요청을 던집니다.</p>
+                      <p class="obp-note">콘솔은 키 목록과 비용을 별개 요청으로 받아 <code>key_id</code>로 조인해 이 컬럼을 그려요. 토큰 지키미도 같은 두 요청을 던집니다.</p>
                     </div>
                   </div>
 
@@ -3172,7 +3173,7 @@
               <div class="ob-frame">
                 <div class="ob-titlebar">
                   <span class="ob-dots"><i></i><i></i><i></i></span>
-                  <span class="ob-title">토큰 판다 — 설정</span>
+                  <span class="ob-title">토큰 지키미 — 설정</span>
                 </div>
                 <div class="ob-settings">
                   <h2 class="obset-h">설정</h2>
@@ -3224,7 +3225,7 @@
                       ⏱ <strong>Gemini는 토큰이 금방 만료돼요.</strong> 쿠키 속
                       <code>__Secure-1PSIDTS</code> · <code>SIDCC</code> 같은 회전 토큰이
                       수십 분~몇 시간 단위로 새로 발급돼 Claude보다 세션이 자주 끊깁니다.
-                      토큰 판다가 폴링마다 회전 쿠키를 자동 갱신해 최대한 버티고, 그래도
+                      토큰 지키미가 폴링마다 회전 쿠키를 자동 갱신해 최대한 버티고, 그래도
                       끊기면 쿠키 한 줄만 다시 붙여넣으면 돼요.
                     </div>
                     <div class="paste-capture acc-paste" hidden>
@@ -3353,7 +3354,7 @@
     <section id="update">
       <div class="wrap">
         <p class="eyebrow">Always Fresh</p>
-        <h2>한 번 켜두면, 나머지는 판다가 챙깁니다</h2>
+        <h2>한 번 켜두면, 나머지는 지키미가 챙깁니다</h2>
         <p class="lead">
           잔량 갱신, 끊긴 연결 복구, 새 버전 설치까지 모두 백그라운드에서 처리합니다.
           그 사이에도 잔량과 버전은 늘 최신 상태로 유지됩니다.
@@ -3367,14 +3368,14 @@
               <div class="mbtop">
                 <span class="mb-token2"> 90%·주 55%
                   <div class="menumock">
-                    <div class="mm-head">토큰 판다 <span class="mm-vwrap"><span class="mv-old">v2.22.0</span><span class="mv-new">v2.23.0</span></span> <span class="mm-dim">(21:58 확인)</span></div>
+                    <div class="mm-head">토큰 지키미 <span class="mm-vwrap"><span class="mv-old">v2.22.0</span><span class="mv-new">v2.23.0</span></span> <span class="mm-dim">(21:58 확인)</span></div>
                     <div class="mm-item mm-update">
                       <span class="mu-idle">🆕 v2.23.0 설치</span>
                       <span class="mu-busy">🆕 v2.23.0 설치 중…</span>
                     </div>
                     <svg class="up-cursor" viewBox="0 0 12 19" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M1 1 L1 16 L5 12 L8 18 L10.2 17 L7.2 11 L11.4 11 Z" fill="#1a1a1a" stroke="#fff" stroke-width="1.1" stroke-linejoin="round"/></svg>
                     <div class="mm-sep"></div>
-                    <div class="mm-item">펫 보이기/숨기기</div>
+                    <div class="mm-item">지키미 보이기/숨기기</div>
                     <div class="mm-item">지금 새로고침 <span class="mm-ic">↻</span></div>
                     <div class="mm-item">표시 모드<span class="mm-arrow">›</span></div>
                     <div class="mm-sep"></div>
@@ -3401,18 +3402,18 @@
           </div>
         </div>
 
-        <!-- (2) 그 아래 — 같은 크기 카드 2개: 연결 복구 · 30초 폴링. 연결 끊김 복구는 위 '표정 & 펫'
+        <!-- (2) 그 아래 — 같은 크기 카드 2개: 연결 복구 · 30초 폴링. 연결 끊김 복구는 위 '표정 & 지키미'
              섹션에서 이미 데모로 보여줬으므로 여기선 설명 카드만. -->
         <div class="up-cards">
           <div class="up-card">
-            <div class="up-card-ic">🔌</div>
+            <div class="up-card-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13.5a4 4 0 0 0 5.66 0l2.84-2.84a4 4 0 1 0-5.66-5.66l-1.5 1.5"/><path d="M14 10.5a4 4 0 0 0-5.66 0L5.5 13.34a4 4 0 1 0 5.66 5.66l1.5-1.5"/></svg></div>
             <h3>연결이 끊겨도, 우클릭 한 번이면 복구</h3>
-            <p>쿠키가 만료된 게 아니라면, 잠깐 끊긴 연결은 펫을 <b>우클릭</b>하거나 설정에서 <b>새로고침</b>하면 곧바로 되살아납니다.</p>
+            <p>쿠키가 만료된 게 아니라면, 잠깐 끊긴 연결은 지키미를 <b>우클릭</b>하거나 설정에서 <b>새로고침</b>하면 곧바로 되살아납니다.</p>
           </div>
           <div class="up-card">
-            <div class="up-card-ic up-card-ic-poll">🔄</div>
+            <div class="up-card-ic up-card-ic-poll"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3.5V9h-5.5"/></svg></div>
             <h3>30초마다 자동 폴링</h3>
-            <p>등록한 쿠키로 30초마다 잔량을 새로 읽어옵니다. 급할 땐 펫을 우클릭하거나 ‘지금 새로고침’으로 즉시 갱신할 수도 있어요.</p>
+            <p>등록한 쿠키로 30초마다 잔량을 새로 읽어옵니다. 급할 땐 지키미를 우클릭하거나 ‘지금 새로고침’으로 즉시 갱신할 수도 있어요.</p>
           </div>
         </div>
       </div>
@@ -3421,8 +3422,8 @@
     <!-- FINAL CTA -->
     <section class="final">
       <div class="wrap">
-        <h2>지금, 펫에게 맡겨보세요</h2>
-        <p>다운로드하고 쿠키 한 줄만 등록하면 끝. 토큰 한도는 이제 펫이 지켜봅니다.</p>
+        <h2>지금, 지키미에게 맡겨보세요</h2>
+        <p>다운로드하고 쿠키 한 줄만 등록하면 끝. 토큰 한도는 이제 지키미가 지켜봅니다.</p>
         <div class="cta">
           <a class="btn btn-primary" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">macOS .dmg 다운로드</a>
           <a class="btn btn-ghost" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">Windows .exe 다운로드</a>
@@ -3812,8 +3813,8 @@
       })();
     </script>
     <script>
-      // 표정 인터랙티브: 5시간 잔량 슬라이더를 끌면 큰 펫 표정이 단계별로 바뀐다.
-      // 캐릭터 칩으로 펫 종류를 바꾸고, 예외 2가지(주간 소진·연결 끊김)는 칩으로 미리보기.
+      // 표정 인터랙티브: 5시간 잔량 슬라이더를 끌면 큰 지키미 표정이 단계별로 바뀐다.
+      // 캐릭터 칩으로 지키미 종류를 바꾸고, 예외 2가지(주간 소진·연결 끊김)는 칩으로 미리보기.
       (function () {
         var pick = document.getElementById("charPick");
         var demo = document.getElementById("exprDemo");
