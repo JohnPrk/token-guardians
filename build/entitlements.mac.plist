@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- V8 JIT -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <!-- Electron 런타임 요구사항 -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <!-- koffi(FFI) + sharp 네이티브 모듈 로딩 허용. koffi 가 dlopen 으로
+       /usr/lib/libobjc, SkyLight 를 직접 여는데, 이 entitlement 가 없으면
+       하드닝 런타임의 library validation 이 막아서 펫 Space 고정이 런타임
+       크래시 날 수 있다. Developer ID(샌드박스 없음) 배포라 추가해도 안전. -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+</dict>
+</plist>

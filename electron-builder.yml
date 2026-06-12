@@ -1,8 +1,8 @@
 # electron-builder 설정 (Tauri 빌드 파이프라인 대체).
 #
 # 핵심 의도:
-# - 사용자가 메뉴바/dock 에 보는 이름은 그대로 "토큰 판다" 유지하되, 파일시스템
-#   bundle 이름은 ASCII (TokenPanda.app) — Electron 의 helper.app 경로 lookup
+# - 사용자가 메뉴바/dock 에 보는 이름은 그대로 "토큰 지키미" 유지하되, 파일시스템
+#   bundle 이름은 ASCII (TokenGuardian.app) — Electron 의 helper.app 경로 lookup
 #   이 NFC/NFD unicode encoding mismatch 로 SIGTRAP 나는 회귀를 회피.
 # - 산출물 이름은 처음부터 `token-panda_${version}_*` 패턴으로 박는다. v1.74.8
 #   에서 productName 한글 prefix 가 GitHub asset 업로드 시 잘려 `_1.74.8_*`
@@ -11,12 +11,15 @@
 #   를 알아서 생성. 기존 src-tauri/icons/ 의 다양한 PNG 는 더 이상 필요 없음.
 
 appId: com.tnew.clauddeskpet
+# 빌드 후 바깥 .app 폴더명을 한글 "토큰 지키미.app"로 바꾼다(표시 이름용). productName/helper 는
+# ASCII 유지(한글이면 helper 경로 SIGTRAP). build/afterPack.cjs 주석 참고.
+afterPack: build/afterPack.cjs
 # productName 은 *파일시스템 식별자 + Electron 내부 helper 경로 lookup* 에
 # 쓰인다. Korean (NFC/NFD encoding mismatch) 이 들어가면 Electron 의
 # `electron_main_delegate_mac.mm` 가 Helper.app path 해석에서 SIGTRAP.
 # → ASCII 로 두고, 사용자가 메뉴바/Finder 에서 보는 이름은 아래 mac.extendInfo
-# 의 CFBundleDisplayName 으로 "토큰 판다" 로 띄운다.
-productName: "TokenPanda"
+# 의 CFBundleDisplayName 으로 "토큰 지키미" 로 띄운다.
+productName: "TokenGuardian"
 copyright: "Copyright © 2026 JohnPrk"
 
 directories:
@@ -51,20 +54,27 @@ extraResources:
 
 mac:
   category: public.app-category.developer-tools
-  # CFBundleName 은 productName(=TokenPanda) 그대로 — Electron helper 가
+  # CFBundleName 은 productName(=TokenGuardian) 그대로 — Electron helper 가
   # CFBundleName 으로 helper.app path 를 lookup 해서 NFC/NFD mismatch SIGTRAP
   # 회피. 사용자가 dock/menubar 에 보는 이름만 CFBundleDisplayName 으로
-  # "토큰 판다" 으로 override.
+  # "토큰 지키미" 으로 override.
   extendInfo:
-    CFBundleDisplayName: "토큰 판다"
+    CFBundleDisplayName: "토큰 지키미"
   target:
     - target: dmg
       arch:
         - arm64
-  # arm64 macOS 는 어떤 형태든 서명이 필요하지만, electron-builder 가 default
-  # 로 linker-signed adhoc 그대로 둔다 (ASCII productName 일 땐 그게 통과). 별도
-  # codesign 호출은 안 함.
-  identity: null
+  # Developer ID 직접 배포 = 하드닝 런타임 + 공증(notarize) 필수.
+  # 서명 인증서는 키체인의 "Developer ID Application" 또는 CI 의 CSC_LINK 에서
+  # 자동 발견. notarize:true 는 서명 후 Apple 공증 서버 제출 + .dmg stapling 까지
+  # 자동 처리하고, Apple ID / 앱암호 / 팀ID 는 환경변수(APPLE_ID /
+  # APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID)로 받는다. 서명 자격이 없으면
+  # (로컬에서 CSC_IDENTITY_AUTO_DISCOVERY=false) 공증도 자동 skip 된다.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
   artifactName: "token-panda_${version}_${arch}.${ext}"
 
 win:
@@ -80,4 +90,5 @@ nsis:
   allowToChangeInstallationDirectory: false
 
 dmg:
+  title: "토큰 지키미"
   artifactName: "token-panda_${version}_${arch}.${ext}"

@@ -53,6 +53,14 @@ jobs:
       - name: Build Electron bundle
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS 서명·공증용. CSC_LINK 은 크로스플랫폼이라 mac job 에서만 주입한다
+          # — Windows 에 새어 들어가면 Authenticode 서명으로 오인돼 빌드가 깨진다.
+          CSC_LINK: ${{ matrix.platform == 'macos-latest' && secrets.MAC_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'macos-latest' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          # APPLE_* 는 공증 단계(mac)만 소비 — Windows job 엔 무해하니 그대로 둔다.
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npm run ${{ matrix.dist_script }}
 
       - name: Upload to GitHub Release
