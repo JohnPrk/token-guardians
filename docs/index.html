@@ -1869,7 +1869,7 @@
           <a href="#remaining">잔량</a>
           <a href="#setup">셋업</a>
           <a href="#update">자동 업데이트</a>
-          <a class="nav-cta" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">다운로드</a>
+          <a class="nav-cta" data-dl="auto" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">다운로드</a>
         </span>
       </div>
     </nav>
@@ -2158,8 +2158,8 @@
           -->
         </div>
         <div class="cta">
-          <a class="btn btn-primary" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">macOS .dmg 다운로드</a>
-          <a class="btn btn-ghost" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">Windows .exe 다운로드</a>
+          <a class="btn btn-primary" data-dl="mac" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">macOS .dmg 다운로드</a>
+          <a class="btn btn-ghost" data-dl="win" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">Windows .exe 다운로드</a>
         </div>
         <p class="platforms">macOS 11+ (Apple Silicon) · Windows 11 x64 · 무료 · 오픈소스 (MIT)</p>
       </div>
@@ -3425,8 +3425,8 @@
         <h2>지금, 지키미에게 맡겨보세요</h2>
         <p>다운로드하고 쿠키 한 줄만 등록하면 끝. 토큰 한도는 이제 지키미가 지켜봅니다.</p>
         <div class="cta">
-          <a class="btn btn-primary" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">macOS .dmg 다운로드</a>
-          <a class="btn btn-ghost" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">Windows .exe 다운로드</a>
+          <a class="btn btn-primary" data-dl="mac" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">macOS .dmg 다운로드</a>
+          <a class="btn btn-ghost" data-dl="win" href="https://github.com/JohnPrk/token-panda-v2/releases/latest">Windows .exe 다운로드</a>
         </div>
         <p class="platforms">macOS 11+ · Windows 11 x64 · 무료 · 오픈소스 (MIT)</p>
       </div>
@@ -4285,6 +4285,44 @@
           }, { threshold: 0.15 });
           io.observe(section);
         } else { startDefault(); }
+      })();
+    </script>
+    <script>
+      /* 다운로드 버튼 → 최신 릴리스 자산 직접 링크 (GitHub API). 버전 하드코딩 없이
+         항상 최신 .dmg/.exe 를 바로 받게 하고, fetch 실패 시 releases/latest 페이지로 폴백. */
+      (function () {
+        var REPO = "JohnPrk/token-panda-v2";
+        function pick(assets, re) {
+          for (var i = 0; i < assets.length; i++) {
+            if (re.test(assets[i].name)) return assets[i].browser_download_url;
+          }
+          return null;
+        }
+        function setHref(sel, url) {
+          if (!url) return;
+          document.querySelectorAll(sel).forEach(function (el) {
+            el.href = url;
+          });
+        }
+        fetch("https://api.github.com/repos/" + REPO + "/releases/latest", {
+          headers: { Accept: "application/vnd.github+json" },
+        })
+          .then(function (r) {
+            return r.ok ? r.json() : Promise.reject(r.status);
+          })
+          .then(function (rel) {
+            var a = rel.assets || [];
+            var dmg = pick(a, /\.dmg$/i);
+            var exe = pick(a, /\.exe$/i); // setup.exe — .exe.blockmap 는 $ 앵커로 제외
+            setHref('[data-dl="mac"]', dmg);
+            setHref('[data-dl="win"]', exe);
+            // 플랫폼 자동 감지: nav "다운로드" 는 Windows 면 exe, 그 외엔 dmg
+            var isWin = /Windows/i.test(navigator.userAgent);
+            setHref('[data-dl="auto"]', isWin ? exe : dmg);
+          })
+          .catch(function () {
+            /* 폴백: 버튼 href 는 releases/latest 그대로 둔다 */
+          });
       })();
     </script>
   </body>
