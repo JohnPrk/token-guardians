@@ -1910,6 +1910,104 @@
   margin: 0;
   cursor: pointer;
 }
+/* 캐릭터 우클릭 동작 설정. 설정 창은 고정 라이트 표면이라(아래 다크 스코프 밖)
+   별도 다크 처리 불필요. */
+.pet-behavior-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* 라벨(좌) + 동작 선택 드롭다운(우) 한 줄. */
+.pet-behavior-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.settings .rc-select {
+  width: auto;
+  cursor: pointer;
+}
+/* "동작 메뉴 표시" 선택 시 펼쳐지는 항목 토글 카드. */
+.menu-toggle-accordion {
+  display: flex;
+  flex-direction: column;
+  margin-top: 2px;
+  padding: 4px 10px;
+  background: #f5f5f8;
+  border-radius: 8px;
+}
+.menu-toggle-caption {
+  margin: 6px 2px 2px;
+  font-size: 10px;
+  color: #999;
+}
+/* .settings label 의 flex-direction:column 을 이겨 라벨(좌)·스위치(우) 한 줄로. */
+.settings .menu-toggle-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 2px;
+  font-size: 12px;
+  color: #333;
+  cursor: pointer;
+}
+.settings .menu-toggle-row + .menu-toggle-row {
+  border-top: 1px solid #e9e9ef;
+}
+.menu-toggle-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.menu-toggle-hint {
+  color: #aaa;
+  font-size: 10px;
+}
+/* on/off 스위치 — 체크박스를 토글 스위치로 스타일링(앱 퍼플 액센트). */
+.tp-switch {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 34px;
+  height: 20px;
+}
+.settings-window .settings .tp-switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+.tp-slider {
+  position: absolute;
+  inset: 0;
+  background: #cfcfd6;
+  border-radius: 999px;
+  transition: background 0.15s;
+}
+.tp-slider::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.15s;
+}
+.tp-switch input:checked + .tp-slider {
+  background: #9b85ff;
+}
+.tp-switch input:checked + .tp-slider::before {
+  transform: translateX(14px);
+}
 .account-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));

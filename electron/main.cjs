@@ -15,6 +15,7 @@ const installer = require("./installer.cjs");
 const telemetry = require("./telemetry.cjs");
 const spaces = require("./spaces.cjs");
 const usage = require("./usage.cjs");
+const menu = require("./menu.cjs");
 const {
   isAuthFailure,
   formatUpdateCheckLabel,
@@ -565,78 +566,93 @@ function startUpdateChecker() {
   }, 60 * 60 * 1000);
 }
 
-function rebuildTray() {
-  if (!tray) return;
-  // 헤더 한 줄에 버전 + 마지막 폴링 시각 통합 (v1.98): "토큰 지키미 v1.97.0 (03:18 확인)".
-  // 평시엔 이 한 줄 + 메뉴 항목들만. 새 버전이 감지되면 헤더 바로 아래에
-  // "🆕 v.. 설치" 버튼 하나만 붙음 (중간 "있음" 라인 폐기 — 헤더의 시각이 폴링
-  // 동작 확인 신호를 이미 줌).
-  const template = [
-    { label: formatHeaderLabel(APP_VERSION, lastUpdateCheck), enabled: false },
-  ];
-  if (updateInfo) {
-    template.push({
-      label: installInProgress
-        ? `🆕 v${updateInfo.latest_version} 설치 중…`
-        : `🆕 v${updateInfo.latest_version} 설치`,
-      enabled: !installInProgress,
-      click: () => handleInstallClick(),
-    });
-  }
-  template.push(
-    { type: "separator" },
-    {
-      label: "지키미 보이기/숨기기",
-      click: () => {
-        if (!petWin) return;
-        if (petWin.isVisible()) petWin.hide();
-        else {
-          petWin.show();
-          petWin.focus();
-        }
-      },
-    },
-    {
+// 트레이 메뉴와 캐릭터 우클릭 컨텍스트 메뉴가 공유하는 항목 빌더. 항목 목록·순서·
+// 토글/조건부 필터는 menu.cjs(순수)가 정하고, 여기선 각 id 의 라벨+클릭 핸들러만
+// 부착한다. 새 메뉴 항목은 menu.cjs:MENU_ITEMS 와 아래 menuItemTemplate 두 곳만
+// 손대면 트레이·우클릭 양쪽에 함께 반영된다. opts.toggles 는 우클릭(pet) surface 에서만 쓰임.
+function buildMenuTemplate(surface, opts = {}) {
+  const ctx = { hasUpdate: !!updateInfo, hasAccounts: trayAccounts.length > 0 };
+  const items = menu.selectMenuItems({ surface, toggles: opts.toggles || {}, ctx });
+  return items.map((it) => menuItemTemplate(it.id)).filter(Boolean);
+}
+
+// id → Electron MenuItem 템플릿. 핸들러는 기존 모듈 상태/함수 클로저를 그대로 쓴다.
+function menuItemTemplate(id) {
+  switch (id) {
+    case "header":
+      // 헤더 한 줄에 버전 + 마지막 폴링 시각 통합 (v1.98): "토큰 지키미 v1.97.0 (03:18 확인)".
+      return { label: formatHeaderLabel(APP_VERSION, lastUpdateCheck), enabled: false };
+    case "install":
+      // 새 버전이 감지되면(updateInfo) "🆕 v.. 설치" 버튼 하나 (중간 "있음" 라인 폐기,
+      // 헤더 시각이 폴링 확인 신호를 이미 줌).
+      return {
+        label: installInProgress
+          ? `🆕 v${updateInfo.latest_version} 설치 중…`
+          : `🆕 v${updateInfo.latest_version} 설치`,
+        enabled: !installInProgress,
+        click: () => handleInstallClick(),
+      };
+    case "sep1":
+    case "sep2":
+      return { type: "separator" };
+    case "showHide":
+      return {
+        label: "지키미 보이기/숨기기",
+        click: () => {
+          if (!petWin) return;
+          if (petWin.isVisible()) petWin.hide();
+          else {
+            petWin.show();
+            petWin.focus();
+          }
+        },
+      };
+    case "refresh":
       // usage 30s poller cycle + 1h release checker cycle 둘 다 즉시 한 번
       // 더 돌려서, 사용자가 "지금 새로고침" 누르면 트레이 헤더 timestamp 가
       // 갱신되는 게 시각적 신호로 동작한다 (v1.51 회귀).
-      label: "지금 새로고침 ↻",
-      click: () => {
-        pollOnce();
-        checkLatestRelease().catch((e) => console.warn("[tp] update check failed:", e));
-      },
-    },
-    {
-      label: "표시 모드",
-      submenu: [
-        { label: "5시간", type: "radio", checked: trayMode === "fivehour", click: () => broadcast("tray-set-mode", "fivehour") },
-        { label: "5시간 + 주간", type: "radio", checked: trayMode === "both", click: () => broadcast("tray-set-mode", "both") },
-        { label: "5시간 + 주간 + $", type: "radio", checked: trayMode === "all", click: () => broadcast("tray-set-mode", "all") },
-      ],
-    },
-  );
-
-  if (trayAccounts.length > 0) {
-    template.push({
-      label: "계정 전환",
-      submenu: trayAccounts.map((a) => ({
-        label: a.label,
-        type: "radio",
-        checked: a.id === trayActiveId,
-        click: () => broadcast("tray-switch-account", a.id),
-      })),
-    });
+      return {
+        label: "지금 새로고침 ↻",
+        click: () => {
+          pollOnce();
+          checkLatestRelease().catch((e) => console.warn("[tp] update check failed:", e));
+        },
+      };
+    case "trayMode":
+      return {
+        label: "표시 모드",
+        submenu: [
+          { label: "5시간", type: "radio", checked: trayMode === "fivehour", click: () => broadcast("tray-set-mode", "fivehour") },
+          { label: "5시간 + 주간", type: "radio", checked: trayMode === "both", click: () => broadcast("tray-set-mode", "both") },
+          { label: "5시간 + 주간 + $", type: "radio", checked: trayMode === "all", click: () => broadcast("tray-set-mode", "all") },
+        ],
+      };
+    case "switchAccount":
+      return {
+        label: "계정 전환",
+        submenu: trayAccounts.map((a) => ({
+          label: a.label,
+          type: "radio",
+          checked: a.id === trayActiveId,
+          click: () => broadcast("tray-switch-account", a.id),
+        })),
+      };
+    case "monthlyUsage":
+      return { label: "월별 API 사용량", click: () => openMonthlyUsage() };
+    case "settings":
+      return { label: "설정...", click: () => openSettings() };
+    case "changelog":
+      return { label: "업데이트 일지", click: () => openChangelog("full", null) };
+    case "quit":
+      return { label: "종료", click: () => { quitting = true; app.quit(); } };
+    default:
+      return null;
   }
+}
 
-  template.push(
-    { label: "월별 API 사용량", click: () => openMonthlyUsage() },
-    { type: "separator" },
-    { label: "설정...", click: () => openSettings() },
-    { label: "업데이트 일지", click: () => openChangelog("full", null) },
-    { label: "종료", click: () => { quitting = true; app.quit(); } },
-  );
-
-  tray.setContextMenu(Menu.buildFromTemplate(template));
+function rebuildTray() {
+  if (!tray) return;
+  tray.setContextMenu(Menu.buildFromTemplate(buildMenuTemplate("tray")));
 }
 
 // tier PNG 는 원본 컬러(녹색 잎/갈색 줄기) 그대로 노출. setTemplateImage 를
@@ -913,6 +929,17 @@ async function handleCommand(cmd, a) {
       return null;
     case "claude_projects_path":
       return null;
+    case "show_pet_context_menu": {
+      // 캐릭터 우클릭 → 트레이와 동일 항목의 네이티브 메뉴를 펫 윈도우 위에 띄운다.
+      // 표시 항목은 사용자가 설정에서 끈 토글(a.toggles)로 필터된다(pet surface).
+      if (!petWin) return null;
+      const template = buildMenuTemplate("pet", { toggles: (a && a.toggles) || {} });
+      Menu.buildFromTemplate(template).popup({ window: petWin });
+      return null;
+    }
+    case "get_menu_items":
+      // 설정 아코디언이 그릴 토글 가능 항목 메타데이터(우클릭 메뉴 전용).
+      return menu.listToggleableItems();
     default:
       console.warn("[tp] unknown command:", cmd);
       return null;
