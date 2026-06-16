@@ -4288,41 +4288,77 @@
       })();
     </script>
     <script>
-      /* 다운로드 버튼 → 최신 릴리스 자산 직접 링크 (GitHub API). 버전 하드코딩 없이
-         항상 최신 .dmg/.exe 를 바로 받게 하고, fetch 실패 시 releases/latest 페이지로 폴백. */
+      /* 다운로드 버튼 → 항상 최신 릴리스 자산을 "직접" 다운로드.
+         자산 파일명에 버전이 박혀(token-panda_2.x.y_*.dmg/.exe) 정적 URL 을 하드코딩할 수
+         없으므로, GitHub API 로 최신 .dmg/.exe 의 browser_download_url 을 받아 href 에 건다.
+           1) 로드 시 미리 받아 href 를 직접 링크로 교체
+           2) 아직 못 받았는데 클릭하면 → 그 자리에서 받아 바로 다운로드 (페이지로 안 샘)
+           3) API 가 끝내 실패할 때만 releases/latest 페이지로 폴백 */
       (function () {
         var REPO = "JohnPrk/token-guardians";
+        var LATEST_PAGE = "https://github.com/" + REPO + "/releases/latest";
+        var urls = null; // { mac, win } — 해결된 직접 다운로드 URL
+        var pending = null; // 진행 중인 fetch Promise (중복 호출 합치기)
+
         function pick(assets, re) {
           for (var i = 0; i < assets.length; i++) {
             if (re.test(assets[i].name)) return assets[i].browser_download_url;
           }
           return null;
         }
-        function setHref(sel, url) {
-          if (!url) return;
-          document.querySelectorAll(sel).forEach(function (el) {
-            el.href = url;
-          });
-        }
-        fetch("https://api.github.com/repos/" + REPO + "/releases/latest", {
-          headers: { Accept: "application/vnd.github+json" },
-        })
-          .then(function (r) {
-            return r.ok ? r.json() : Promise.reject(r.status);
+        function load() {
+          if (pending) return pending;
+          pending = fetch("https://api.github.com/repos/" + REPO + "/releases/latest", {
+            headers: { Accept: "application/vnd.github+json" },
           })
-          .then(function (rel) {
-            var a = rel.assets || [];
-            var dmg = pick(a, /\.dmg$/i);
-            var exe = pick(a, /\.exe$/i); // setup.exe — .exe.blockmap 는 $ 앵커로 제외
-            setHref('[data-dl="mac"]', dmg);
-            setHref('[data-dl="win"]', exe);
-            // 플랫폼 자동 감지: nav "다운로드" 는 Windows 면 exe, 그 외엔 dmg
-            var isWin = /Windows/i.test(navigator.userAgent);
-            setHref('[data-dl="auto"]', isWin ? exe : dmg);
+            .then(function (r) {
+              return r.ok ? r.json() : Promise.reject(r.status);
+            })
+            .then(function (rel) {
+              var a = rel.assets || [];
+              urls = {
+                mac: pick(a, /\.dmg$/i),
+                win: pick(a, /\.exe$/i), // setup.exe — .exe.blockmap 는 $ 앵커로 제외
+              };
+              return urls;
+            });
+          return pending;
+        }
+        // data-dl 종류별 직접 URL (auto 는 플랫폼 자동 감지)
+        function urlFor(kind, u) {
+          if (kind === "mac") return u.mac;
+          if (kind === "win") return u.win;
+          return /Windows/i.test(navigator.userAgent) ? u.win : u.mac; // auto
+        }
+        var buttons = document.querySelectorAll("[data-dl]");
+
+        // 1) 미리 받아 href 를 직접 링크로 교체
+        load()
+          .then(function (u) {
+            buttons.forEach(function (el) {
+              var direct = urlFor(el.getAttribute("data-dl"), u);
+              if (direct) el.href = direct;
+            });
           })
           .catch(function () {
-            /* 폴백: 버튼 href 는 releases/latest 그대로 둔다 */
+            /* href 는 releases/latest 페이지 그대로 (폴백) */
           });
+
+        // 2) 아직 직접 URL 이 안 박혔을 때 클릭하면 → 그 자리에서 받아 바로 다운로드
+        buttons.forEach(function (el) {
+          el.addEventListener("click", function (e) {
+            if (urls) return; // 이미 직접 링크 적용됨 → 기본 동작으로 바로 다운로드
+            e.preventDefault();
+            var kind = el.getAttribute("data-dl");
+            load()
+              .then(function (u) {
+                window.location.href = urlFor(kind, u) || LATEST_PAGE;
+              })
+              .catch(function () {
+                window.location.href = LATEST_PAGE;
+              });
+          });
+        });
       })();
     </script>
   </body>
