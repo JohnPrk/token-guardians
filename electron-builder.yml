@@ -2,7 +2,7 @@
 #
 # 핵심 의도:
 # - 사용자가 메뉴바/dock 에 보는 이름은 그대로 "토큰 지키미" 유지하되, 파일시스템
-#   bundle 이름은 ASCII (TokenGuardian.app) — Electron 의 helper.app 경로 lookup
+#   bundle 이름은 ASCII (TokenGuardians.app) — Electron 의 helper.app 경로 lookup
 #   이 NFC/NFD unicode encoding mismatch 로 SIGTRAP 나는 회귀를 회피.
 # - 산출물 이름은 처음부터 `token-panda_${version}_*` 패턴으로 박는다. v1.74.8
 #   에서 productName 한글 prefix 가 GitHub asset 업로드 시 잘려 `_1.74.8_*`
@@ -24,7 +24,7 @@ appId: com.tnew.clauddeskpet
 # `electron_main_delegate_mac.mm` 가 Helper.app path 해석에서 SIGTRAP.
 # → ASCII 로 두고, 사용자가 메뉴바/Finder 에서 보는 이름은 아래 mac.extendInfo
 # 의 CFBundleDisplayName 으로 "토큰 지키미" 로 띄운다.
-productName: "TokenGuardian"
+productName: "TokenGuardians"
 copyright: "Copyright © 2026 JohnPrk"
 
 directories:
@@ -59,7 +59,7 @@ extraResources:
 
 mac:
   category: public.app-category.developer-tools
-  # CFBundleName 은 productName(=TokenGuardian) 그대로 — Electron helper 가
+  # CFBundleName 은 productName(=TokenGuardians) 그대로 — Electron helper 가
   # CFBundleName 으로 helper.app path 를 lookup 해서 NFC/NFD mismatch SIGTRAP
   # 회피. 사용자가 dock/menubar 에 보는 이름만 CFBundleDisplayName 으로
   # "토큰 지키미" 으로 override.
@@ -98,7 +98,7 @@ dmg:
   title: "토큰 지키미"
   artifactName: "token-panda_${version}_${arch}.${ext}"
   # dmg 안의 .app 파일명을 한글로 표시 → 사용자가 /Applications 로 끌어다 놓으면
-  # "토큰 지키미.app" 로 설치된다. on-disk productName(TokenGuardian)·helper 는 ASCII
+  # "토큰 지키미.app" 로 설치된다. on-disk productName(TokenGuardians)·helper 는 ASCII
   # 그대로라 SIGTRAP 회피. (DmgContent.name = dmg 내 파일명, 기본값은 path 의 basename)
   contents:
     - x: 130

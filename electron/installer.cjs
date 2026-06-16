@@ -149,25 +149,25 @@ if ($exe) {
 `;
 }
 
-// electron-builder NSIS (oneClick + perMachine:false + productName=TokenGuardian)
+// electron-builder NSIS (oneClick + perMachine:false + productName=TokenGuardians)
 // 용 PS 스크립트. v1.85 에서 빌드 파이프라인을 Tauri NSIS → electron-builder
 // 로 갈아끼웠는데, 위쪽 buildWindowsInstallScript 는 옛 Tauri 가정 (exe 이름
 // `app.exe`, HKCU Uninstall 키가 productName 그대로) 에 묶인 v1.75.0 frozen
 // 테스트 계약이라 손대지 않고 새 함수로 분기. 차이:
-//   - 실제 설치 exe: `TokenGuardian.exe` (productName 그대로, `app.exe` 아님)
-//   - 기본 설치 경로: `%LOCALAPPDATA%\Programs\TokenGuardian\TokenGuardian.exe`
+//   - 실제 설치 exe: `TokenGuardians.exe` (productName 그대로, `app.exe` 아님)
+//   - 기본 설치 경로: `%LOCALAPPDATA%\Programs\TokenGuardians\TokenGuardians.exe`
 //     (electron-builder oneClick 기본값 — `Programs\` 가 끼는 게 핵심)
 //   - 레지스트리 키: electron-builder 가 appId 해시 GUID 로 sub-key 를 박아
 //     productName 직접 lookup 불가 → HKCU\...\Uninstall\* 를 스캔해서
 //     DisplayName 으로 매칭하는 fallback 로 대체
-// 본 함수가 처음부터 정확한 기본 설치 경로(`Programs\\TokenGuardian\\..`)를 보고,
+// 본 함수가 처음부터 정확한 기본 설치 경로(`Programs\\TokenGuardians\\..`)를 보고,
 // 거기 없으면 registry 스캔으로 떨어진다. 옛 코드처럼 GUID 모르는 직접 키
 // lookup 으로 항상 실패하던 회귀를 차단.
 function buildWindowsInstallScriptEB(installerPath) {
   return `$ErrorActionPreference = 'SilentlyContinue'
 $installerPath = ${JSON.stringify(installerPath)}
-$proc = 'TokenGuardian.exe'
-$installRoot = Join-Path $env:LOCALAPPDATA 'Programs\\TokenGuardian'
+$proc = 'TokenGuardians.exe'
+$installRoot = Join-Path $env:LOCALAPPDATA 'Programs\\TokenGuardians'
 
 # 1) 옛 프로세스 종료 대기 (최대 30초). 못 죽으면 강제 종료.
 $procBase = [System.IO.Path]::GetFileNameWithoutExtension($proc)
@@ -193,7 +193,7 @@ if (-not $exe) {
   $keys = Get-ChildItem 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\' -ErrorAction SilentlyContinue
   foreach ($k in $keys) {
     $props = Get-ItemProperty $k.PSPath -ErrorAction SilentlyContinue
-    if ($props -and ($props.DisplayName -eq 'TokenGuardian' -or $props.DisplayName -eq '토큰 지키미' -or $props.DisplayName -eq 'TokenPanda' -or $props.DisplayName -eq '토큰 판다')) {
+    if ($props -and ($props.DisplayName -eq 'TokenGuardians' -or $props.DisplayName -eq 'TokenGuardian' -or $props.DisplayName -eq '토큰 지키미' -or $props.DisplayName -eq 'TokenPanda' -or $props.DisplayName -eq '토큰 판다')) {
       $loc = $props.InstallLocation
       if ($loc) {
         $loc = $loc.Trim('"')
@@ -268,7 +268,7 @@ async function downloadAndStartInstall(asset, opts) {
   await downloadToFile(asset.browser_download_url, dest);
 
   if (platform === "darwin") {
-    const appPath = opts.appPath || "/Applications/TokenGuardian.app";
+    const appPath = opts.appPath || "/Applications/TokenGuardians.app";
     const script = buildMacInstallScript(dest, appPath);
     const scriptPath = path.join(tmpDir, "tp-install.sh");
     fs.writeFileSync(scriptPath, script, "utf8");
@@ -276,7 +276,7 @@ async function downloadAndStartInstall(asset, opts) {
     // nohup 효과는 detached + ignore stdio 로 충분 (부모 종료시 SIGHUP 안 받음)
     await spawnDetached("bash", [scriptPath]);
   } else if (platform === "win32") {
-    // v1.85 부터 빌드 파이프라인이 electron-builder NSIS (productName="TokenGuardian",
+    // v1.85 부터 빌드 파이프라인이 electron-builder NSIS (productName="TokenGuardians",
     // oneClick + perMachine:false). 설치본 exe 이름·경로·레지스트리 키 규칙이
     // Tauri NSIS 와 달라 옛 buildWindowsInstallScript 로는 새 exe lookup 이
     // 항상 fail → 사용자가 본 "프로세스는 죽었는데 새 앱이 안 뜨는" 증상의 원인.

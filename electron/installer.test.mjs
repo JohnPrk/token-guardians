@@ -196,9 +196,9 @@ describe("buildWindowsInstallScript", () => {
 // TokenPanda.exe 를 primary 로 보고, 없으면 HKCU Uninstall sub-key 전체를 스캔
 // 해 DisplayName 으로 매칭 (NSIS GUID 키라 직접 lookup 불가).
 describe("buildWindowsInstallScriptEB (electron-builder NSIS)", () => {
-  it("targets TokenGuardian.exe (electron-builder productName), not legacy app.exe", () => {
+  it("targets TokenGuardians.exe (electron-builder productName), not legacy app.exe", () => {
     const s = buildWindowsInstallScriptEB("C:\\Temp\\tp.exe");
-    expect(s).toContain("'TokenGuardian.exe'");
+    expect(s).toContain("'TokenGuardians.exe'");
     expect(s).not.toMatch(/\$proc = 'app\.exe'/);
   });
 
@@ -207,10 +207,10 @@ describe("buildWindowsInstallScriptEB (electron-builder NSIS)", () => {
     expect(s).toContain('"C:\\\\Temp\\\\with space.exe"');
   });
 
-  it("primary install root is %LOCALAPPDATA%\\Programs\\TokenGuardian (electron-builder default for perMachine:false)", () => {
+  it("primary install root is %LOCALAPPDATA%\\Programs\\TokenGuardians (electron-builder default for perMachine:false)", () => {
     const s = buildWindowsInstallScriptEB("C:\\a.exe");
     expect(s).toContain("$env:LOCALAPPDATA");
-    expect(s).toContain("Programs\\TokenGuardian");
+    expect(s).toContain("Programs\\TokenGuardians");
   });
 
   it("falls back to scanning HKCU Uninstall sub-keys by DisplayName when primary path missing", () => {
