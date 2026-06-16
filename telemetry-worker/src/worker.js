@@ -294,7 +294,7 @@ function dashboardHtml() {
   return `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>token-panda · telemetry</title>
+<title>토큰 지키미 · telemetry</title>
 <style>
   :root{--bg:#0f1115;--card:#171a21;--line:#262a33;--fg:#e8eaed;--mut:#8b919e;--accent:#46b3a8;--blue:#5b8cff;--purple:#9a7bff}
   *{box-sizing:border-box}
@@ -341,7 +341,7 @@ function dashboardHtml() {
   var app = document.getElementById('app');
   function esc(s){var d=document.createElement('div');d.textContent=(s==null?'':String(s));return d.innerHTML;}
   function gate(msg){
-    app.innerHTML='<div class="gate"><h1>🐼 token-panda telemetry</h1>'+
+    app.innerHTML='<div class="gate"><h1>🐼 토큰 지키미 telemetry</h1>'+
       (msg?'<p class="err">'+esc(msg)+'</p>':'<p class="sub">STATS_TOKEN 을 입력하세요</p>')+
       '<input id="tk" type="password" placeholder="STATS_TOKEN"><br>'+
       '<button onclick="save()">보기</button></div>';
@@ -461,7 +461,7 @@ function dashboardHtml() {
     return h+'</div>';}
 
   function render(d){var a=d.active||{};var st=d.stickiness||{};
-    app.innerHTML='<h1>🐼 token-panda telemetry</h1><div class="sub">갱신 '+esc(d.generated_at)+' · 60초마다 자동</div>'+
+    app.innerHTML='<h1>🐼 토큰 지키미 telemetry</h1><div class="sub">갱신 '+esc(d.generated_at)+' · 60초마다 자동</div>'+
       '<div class="cards">'+card(d.total_installs,'총 설치')+card(a.dau,'DAU')+card(a.wau,'WAU')+card(a.mau,'MAU')+
         card(d.new_installs_today,'오늘 신규')+card(fmtPct(st.dau_mau),'끈적도 DAU/MAU')+'</div>'+
       trendDauWau(d.trends,st)+
