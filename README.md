@@ -2,8 +2,8 @@
 
 > 데스크톱 한구석에서 너의 Claude 토큰 잔량을 지켜봐주는 작은 지키미.
 
-[![Download .dmg](https://img.shields.io/badge/Download-.dmg%20v2.31.0-6b4cff?style=for-the-badge&logo=apple)](https://github.com/JohnPrk/token-panda-v2/releases/latest/download/token-panda_2.31.0_arm64.dmg)
-[![Download Windows](https://img.shields.io/badge/Download-Windows%20v2.31.0-0078d4?style=for-the-badge&logo=windows)](https://github.com/JohnPrk/token-panda-v2/releases/latest/download/token-panda_2.31.0_x64-setup.exe)
+[![Download .dmg](https://img.shields.io/badge/Download-.dmg%20v2.31.1-6b4cff?style=for-the-badge&logo=apple)](https://github.com/JohnPrk/token-panda-v2/releases/latest/download/token-panda_2.31.1_arm64.dmg)
+[![Download Windows](https://img.shields.io/badge/Download-Windows%20v2.31.1-0078d4?style=for-the-badge&logo=windows)](https://github.com/JohnPrk/token-panda-v2/releases/latest/download/token-panda_2.31.1_x64-setup.exe)
 [![platforms](https://img.shields.io/badge/platform-macOS%2011%2B%20%C2%B7%20Windows%2010%2B-lightgrey?style=for-the-badge)](#한계)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](#라이선스)
 
@@ -73,12 +73,12 @@
 실제로 파일이 깨진 게 아니라, 서명/공증 안 된 앱에 macOS가 quarantine 속성(`com.apple.quarantine`)을 붙여서 차단하는 것입니다. 우클릭 → 열기로도 안 뚫리니 quarantine 속성 자체를 제거해야 합니다. 터미널을 열어 아래 한 줄을 입력하세요.
 
 ```bash
-xattr -cr /Applications/TokenPanda.app
+xattr -cr "/Applications/토큰 지키미.app"
 ```
 
 이후 다시 더블클릭하면 열립니다. (한 번만 하면 되고, 다음 실행부터는 그냥 클릭으로 실행 가능)
 
-> 파일시스템상의 번들 이름은 `TokenPanda.app` 입니다(위 터미널 경로에 그대로 사용). Finder·메뉴바에는 여전히 "토큰 지키미" 로 보이는데, 표시 이름만 `CFBundleDisplayName` 으로 한글로 띄우고 실제 파일명은 ASCII 로 둔 것입니다.
+> `/Applications` 에 설치되는 번들 이름은 `토큰 지키미.app` 입니다(위 터미널 경로에 그대로 사용). 앱 내부의 productName·helper 식별자만 ASCII(`TokenGuardians`)로 두어 경로 인코딩 문제를 피하고, Finder·메뉴바·파일명에는 모두 한글 "토큰 지키미" 로 보입니다.
 
 <br>
 
