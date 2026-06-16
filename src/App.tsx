@@ -1620,11 +1620,18 @@ function Pet({
         data-refreshing={refreshing ? "true" : ""}
         data-tauri-drag-region
         onContextMenu={(e) => {
-          // Right-click on the panda = manual refresh. preventDefault
-          // suppresses any browser/webview context menu so only the
-          // refresh ping is visible.
+          // 우클릭 동작은 설정(config.petRightClickAction)으로 분기. 기본/legacy 는
+          // "refresh"(종전처럼 즉시 새로고침). "menu"면 트레이와 동일 항목의 네이티브
+          // 컨텍스트 메뉴를 메인에서 띄운다. preventDefault 는 두 경우 모두 webview
+          // 기본 메뉴를 막기 위해 유지.
           e.preventDefault();
-          triggerRefresh();
+          if (config.petRightClickAction === "menu") {
+            invoke("show_pet_context_menu", {
+              toggles: config.petMenuToggles ?? {},
+            }).catch(() => {});
+          } else {
+            triggerRefresh();
+          }
         }}
         onPointerUp={onCharacterPointerUp}
       >
@@ -2014,6 +2021,55 @@ function Settings({
     await saveTelemetryOptOut(next);
   };
 
+  // 캐릭터 우클릭 동작 + 우클릭 메뉴에 보일 항목 토글. PlanConfig 에 영속하고,
+  // 저장 후 config-changed 를 emit 해서 펫 윈도우가 즉시 새 설정을 읽게 한다.
+  // 항목 목록은 메인(get_menu_items)이 menu.cjs 단일 레지스트리에서 내려주므로,
+  // 새 메뉴 항목을 추가하면 이 UI 가 자동으로 따라온다.
+  const [rcAction, setRcAction] = useState<"refresh" | "menu">("refresh");
+  const [menuToggles, setMenuToggles] = useState<Record<string, boolean>>({});
+  const [menuItems, setMenuItems] = useState<
+    { id: string; settingsLabel: string; conditionalHint: string | null; defaultOn: boolean }[]
+  >([]);
+  useEffect(() => {
+    loadPlanConfig().then((cfg) => {
+      if (cfg?.petRightClickAction) setRcAction(cfg.petRightClickAction);
+      if (cfg?.petMenuToggles) setMenuToggles(cfg.petMenuToggles);
+    });
+    invoke<
+      { id: string; settingsLabel: string; conditionalHint: string | null; defaultOn: boolean }[]
+    >("get_menu_items")
+      .then(setMenuItems)
+      .catch(() => {});
+  }, []);
+  // PlanConfig 의 일부 필드만 패치 저장 + 펫에 통지. skin/plan/limits/trayMode/petScale
+  // 등 기존 필드는 직전 store 값을 base 로 보존(다른 창의 변경 덮어쓰기 방지).
+  const persistPlanPatch = async (patch: Partial<PlanConfig>) => {
+    const cur = await loadPlanConfig();
+    const base: PlanConfig =
+      cur ?? { plan: "max5x", limits: PLAN_PRESETS.max5x, skin: DEFAULT_SKIN_ID };
+    await savePlanConfig({ ...base, ...patch });
+    await emit("config-changed");
+  };
+  const changeRcAction = async (next: "refresh" | "menu") => {
+    setRcAction(next);
+    await persistPlanPatch({ petRightClickAction: next });
+  };
+  // 저장된 토글이 없으면 항목 기본값(menu.cjs 의 defaultOn — 예: install=false)을 따른다.
+  const isItemOn = (id: string) =>
+    menuToggles[id] ?? (menuItems.find((it) => it.id === id)?.defaultOn ?? true);
+  const toggleMenuItem = async (id: string, on: boolean) => {
+    // 우클릭 메뉴가 텅 비지 않도록 최소 1개는 켜진 상태를 강제(끄려는 항목이 마지막
+    // ON 이면 무시). menu.cjs 도 빈 결과를 settings 로 폴백하지만, UI 단에서 막아
+    // 사용자가 "전부 꺼짐" 상태를 만들지 못하게 한다.
+    if (!on) {
+      const onCount = menuItems.filter((it) => isItemOn(it.id)).length;
+      if (onCount <= 1 && isItemOn(id)) return;
+    }
+    const next = { ...menuToggles, [id]: on };
+    setMenuToggles(next);
+    await persistPlanPatch({ petMenuToggles: next });
+  };
+
   const setActive = async (id: string) => {
     if (id === accounts.activeAccountId) return;
     await onAccountsChange({ ...accounts, activeAccountId: id });
@@ -2170,6 +2226,47 @@ function Settings({
             임의의 설치 ID · 앱 버전 · OS 만 수집해 얼마나 쓰이는지 파악하는 데
             씁니다. 계정 연동 정보(쿠키 · Org ID)는 절대 포함되지 않아요.
           </p>
+        </div>
+
+        <div className="pet-behavior-section">
+          <div className="pet-behavior-head">
+            <span className="accounts-label">캐릭터 우클릭 시 동작</span>
+            <select
+              className="rc-select"
+              value={rcAction}
+              onChange={(e) =>
+                changeRcAction(e.target.value === "menu" ? "menu" : "refresh")
+              }
+            >
+              <option value="refresh">즉시 새로고침</option>
+              <option value="menu">동작 메뉴 표시</option>
+            </select>
+          </div>
+          {rcAction === "menu" && (
+            <div className="menu-toggle-accordion">
+              <p className="menu-toggle-caption">
+                우클릭 메뉴에 표시할 항목 · 메뉴바 메뉴와 동일(우클릭에만 적용)
+              </p>
+              {menuItems.map((it) => (
+                <label key={it.id} className="menu-toggle-row">
+                  <span className="menu-toggle-label">
+                    {it.settingsLabel}
+                    {it.conditionalHint && (
+                      <span className="menu-toggle-hint">{it.conditionalHint}</span>
+                    )}
+                  </span>
+                  <span className="tp-switch">
+                    <input
+                      type="checkbox"
+                      checked={isItemOn(it.id)}
+                      onChange={(e) => toggleMenuItem(it.id, e.target.checked)}
+                    />
+                    <span className="tp-slider" />
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="settings-actions">
