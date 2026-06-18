@@ -1,6 +1,7 @@
 // token-panda 익명 텔레메트리 Worker.
 //   POST /ping   설치 앱이 시간당 보내는 핑을 D1 에 기록 → 204
 //   GET  /stats  집계 대시보드 JSON (STATS_TOKEN 필요)
+//   GET  /public-stats  랜딩 공개용 최소 집계 JSON (토큰 불필요, PII 0)
 //   GET  /health 헬스체크
 //
 // 설계 메모: 클라(electron/telemetry.cjs)는 {id, v, os} 만 보낸다. 국가는 여기서
@@ -34,6 +35,10 @@ function json(body, status = 200) {
       "Cache-Control": "no-store",
     },
   });
+}
+
+function firstN(result) {
+  return result && result.results && result.results[0] ? result.results[0].n : 0;
 }
 
 // ── 순수 파생 헬퍼 (DB 없이 단위 테스트 가능) ───────────────────────────────
@@ -114,6 +119,36 @@ export function overallRetention(cohorts, todayStr, offsetDays, key) {
     }
   });
   return pct(kept, size);
+}
+
+// 랜딩 페이지에 공개해도 되는 최소 집계만 고른다.
+// total_downloads 는 앱 telemetry 기준의 고유 설치 수와 같은 값이다.
+export function publicStatsFromAggregates({
+  generatedAt,
+  todayStr,
+  totalInstalls,
+  dau,
+  wau,
+  mau,
+  cohorts,
+}) {
+  const d = todayStr || today();
+  const cohortRows = cohorts || [];
+  const total = totalInstalls || 0;
+  return {
+    generated_at: generatedAt || new Date().toISOString(),
+    total_downloads: total,
+    total_installs: total,
+    active: {
+      dau: dau || 0,
+      wau: wau || 0,
+      mau: mau || 0,
+    },
+    retention: {
+      d1_overall: overallRetention(cohortRows, d, 1, "d1"),
+      d7_overall: overallRetention(cohortRows, d, 7, "d7"),
+    },
+  };
 }
 
 // (day, version, n) 평탄 행을 일별 {day,total,segments[]} 로 묶는다(채택 곡선용).
@@ -234,10 +269,9 @@ async function handleStats(request, env) {
          WHERE day >= date(?1,'-13 days') GROUP BY day, version ORDER BY day`, d),
     ]);
 
-  const n = (r) => (r.results && r.results[0] ? r.results[0].n : 0);
-  const dauN = n(dau);
-  const wauN = n(wau);
-  const mauN = n(mau);
+  const dauN = firstN(dau);
+  const wauN = firstN(wau);
+  const mauN = firstN(mau);
 
   // 신규/복귀를 dense 30일로 채우고, DAU 추이는 (신규+복귀)로 일관 산출
   const splitRows = splitR.results || [];
@@ -260,9 +294,9 @@ async function handleStats(request, env) {
 
   return json({
     generated_at: new Date().toISOString(),
-    total_installs: n(total),
+    total_installs: firstN(total),
     active: { dau: dauN, wau: wauN, mau: mauN },
-    new_installs_today: n(newToday),
+    new_installs_today: firstN(newToday),
     by_version: byVersion.results,
     by_os: byOs.results,
     by_country: byCountry.results,
@@ -285,6 +319,32 @@ async function handleStats(request, env) {
     dormancy,
     version_adoption: rollupVersionByDay(verR.results || []),
   });
+}
+
+async function handlePublicStats(request, env) {
+  const d = today();
+  const q = (sql, ...binds) => env.DB.prepare(sql).bind(...binds);
+  const [total, dau, wau, mau, cohR] = await env.DB.batch([
+    q(`SELECT COUNT(*) AS n FROM installs`),
+    q(`SELECT COUNT(DISTINCT id) AS n FROM pings_daily WHERE day = ?1`, d),
+    q(`SELECT COUNT(DISTINCT id) AS n FROM pings_daily WHERE day >= date(?1,'-6 days')`, d),
+    q(`SELECT COUNT(DISTINCT id) AS n FROM pings_daily WHERE day >= date(?1,'-29 days')`, d),
+    q(`SELECT first_seen AS cohort, COUNT(*) AS size,
+         SUM(CASE WHEN last_seen >= date(first_seen,'+1 days') THEN 1 ELSE 0 END) AS d1,
+         SUM(CASE WHEN last_seen >= date(first_seen,'+7 days') THEN 1 ELSE 0 END) AS d7
+       FROM installs WHERE first_seen >= date(?1,'-60 days')
+       GROUP BY first_seen ORDER BY first_seen`, d),
+  ]);
+
+  return json(publicStatsFromAggregates({
+    generatedAt: new Date().toISOString(),
+    todayStr: d,
+    totalInstalls: firstN(total),
+    dau: firstN(dau),
+    wau: firstN(wau),
+    mau: firstN(mau),
+    cohorts: cohR.results || [],
+  }));
 }
 
 // GET / 또는 /dashboard 에서 보여주는 단일 파일 대시보드. 토큰은 ?token= 으로
@@ -488,6 +548,7 @@ export default {
     const { pathname } = new URL(request.url);
     if (request.method === "POST" && pathname === "/ping") return handlePing(request, env);
     if (request.method === "GET" && pathname === "/stats") return handleStats(request, env);
+    if (request.method === "GET" && pathname === "/public-stats") return handlePublicStats(request, env);
     if (request.method === "GET" && (pathname === "/" || pathname === "/dashboard")) {
       return new Response(dashboardHtml(), {
         headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },

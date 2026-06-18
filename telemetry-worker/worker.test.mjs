@@ -9,6 +9,7 @@ import {
   bucketActiveDays,
   markCohorts,
   overallRetention,
+  publicStatsFromAggregates,
   rollupVersionByDay,
 } from "./src/worker.js";
 
@@ -119,6 +120,34 @@ describe("overallRetention", () => {
   it("적격 코호트가 없으면 null", () => {
     expect(overallRetention([{ cohort: "2026-06-16", size: 3, d7: 0 }], "2026-06-16", 7, "d7")).toBeNull();
     expect(overallRetention([], "2026-06-16", 7, "d7")).toBeNull();
+  });
+});
+
+describe("publicStatsFromAggregates", () => {
+  it("랜딩 공개용 최소 필드만 만든다", () => {
+    const out = publicStatsFromAggregates({
+      generatedAt: "2026-06-17T06:00:00.000Z",
+      todayStr: "2026-06-17",
+      totalInstalls: 9,
+      dau: 6,
+      wau: 9,
+      mau: 9,
+      cohorts: [
+        { cohort: "2026-06-15", size: 1, d1: 1, d7: 0 },
+        { cohort: "2026-06-16", size: 8, d1: 5, d7: 0 },
+      ],
+    });
+
+    expect(out).toEqual({
+      generated_at: "2026-06-17T06:00:00.000Z",
+      total_downloads: 9,
+      total_installs: 9,
+      active: { dau: 6, wau: 9, mau: 9 },
+      retention: { d1_overall: 66.7, d7_overall: null },
+    });
+    expect(out).not.toHaveProperty("by_country");
+    expect(out).not.toHaveProperty("by_version");
+    expect(out).not.toHaveProperty("retention.cohorts");
   });
 });
 

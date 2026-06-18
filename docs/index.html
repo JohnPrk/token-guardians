@@ -116,7 +116,7 @@
       .btn-ghost:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
       .hero .platforms { margin-top: 10px; font-size: 13px; color: var(--muted); }
       .live-proof {
-        width: min(620px, 100%);
+        width: min(780px, 100%);
         margin: 20px auto 0;
         color: var(--body);
       }
@@ -130,7 +130,7 @@
       }
       .live-proof.is-error .proof-dot { background: #d66a4a; box-shadow: 0 0 0 4px rgba(214, 106, 74, 0.12); }
       .proof-grid {
-        display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+        display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px;
       }
       .proof-stat {
         min-width: 0; padding: 12px 10px 11px;
@@ -141,7 +141,7 @@
       .proof-stat b {
         display: block; min-height: 31px; color: var(--ink);
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: clamp(22px, 4vw, 29px); line-height: 1.05; font-weight: 850;
+        font-size: clamp(20px, 3vw, 27px); line-height: 1.05; font-weight: 850;
         font-variant-numeric: tabular-nums; letter-spacing: 0;
       }
       .proof-stat b.is-pending { font-family: inherit; font-size: clamp(15px, 3.2vw, 18px); line-height: 1.7; }
@@ -152,6 +152,9 @@
       .proof-note {
         max-width: 520px; margin: 11px auto 0; color: var(--muted);
         font-size: 13px; line-height: 1.55;
+      }
+      @media (max-width: 720px) {
+        .proof-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       }
       @media (max-width: 520px) {
         .proof-grid { grid-template-columns: 1fr; }
@@ -2319,6 +2322,8 @@
           <div class="proof-head"><span class="proof-dot" aria-hidden="true"></span><span data-live-status>사용 통계 불러오는 중</span></div>
           <div class="proof-grid">
             <div class="proof-stat"><b data-stat="downloads">--</b><span>누적 다운로드</span></div>
+            <div class="proof-stat"><b data-stat="active-wau">--</b><span>WAU</span></div>
+            <div class="proof-stat"><b data-stat="active-mau">--</b><span>MAU</span></div>
             <div class="proof-stat"><b data-stat="retention-d1">--</b><span>D1 리텐션</span></div>
             <div class="proof-stat"><b data-stat="retention-d7">--</b><span>D7 리텐션</span></div>
           </div>
@@ -4635,6 +4640,8 @@
         var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         var status = root.querySelector("[data-live-status]");
         var downloads = root.querySelector('[data-stat="downloads"]');
+        var wau = root.querySelector('[data-stat="active-wau"]');
+        var mau = root.querySelector('[data-stat="active-mau"]');
         var d1 = root.querySelector('[data-stat="retention-d1"]');
         var d7 = root.querySelector('[data-stat="retention-d7"]');
 
@@ -4690,9 +4697,12 @@
           return byType.year + "." + byType.month + "." + byType.day;
         }
         function apply(data) {
+          var active = data.active || {};
           var retention = data.retention || {};
           root.classList.remove("is-error");
           animate(downloads, data.total_downloads, fmtInt);
+          animate(wau, active.wau, fmtInt);
+          animate(mau, active.mau, fmtInt);
           animate(d1, retention.d1_overall, fmtPct);
           animate(d7, retention.d7_overall, fmtPct);
           status.textContent = statDate(data.generated_at) + " 현재";
