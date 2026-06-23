@@ -1896,20 +1896,8 @@
   flex-direction: column;
   gap: 8px;
 }
-.telemetry-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  cursor: pointer;
-}
-/* 설정 카드의 `input { width: 100% }`(2 classes)을 이기려면 더 구체적인
-   셀렉터로 체크박스만 auto 폭으로 되돌린다. */
-.settings-window .settings .telemetry-toggle input {
-  width: auto;
-  margin: 0;
-  cursor: pointer;
-}
+/* 익명 통계 토글은 아래 우클릭 카드와 같은 .menu-toggle-accordion/.menu-toggle-row
+   를 그대로 재사용하므로 별도 .telemetry-toggle 규칙이 필요 없다(제거). */
 /* 캐릭터 우클릭 동작 설정. 설정 창은 고정 라이트 표면이라(아래 다크 스코프 밖)
    별도 다크 처리 불필요. */
 .pet-behavior-section {
@@ -1940,7 +1928,8 @@
 .menu-toggle-caption {
   margin: 6px 2px 2px;
   font-size: 10px;
-  color: #999;
+  /* 계정 카드의 고유 식별자(.account-tile-org)와 같은 뮤트 톤으로 맞춤. */
+  color: #6b6479;
 }
 /* .settings label 의 flex-direction:column 을 이겨 라벨(좌)·스위치(우) 한 줄로. */
 .settings .menu-toggle-row {
@@ -1963,7 +1952,8 @@
   gap: 6px;
 }
 .menu-toggle-hint {
-  color: #aaa;
+  /* caption 과 동일하게 계정 카드 고유 식별자(.account-tile-org) 톤으로 맞춤. */
+  color: #6b6479;
   font-size: 10px;
 }
 /* on/off 스위치 — 체크박스를 토글 스위치로 스타일링(앱 퍼플 액센트). */

@@ -208,10 +208,11 @@ export type PlanConfig = {
    *  (petLogic.ts 의 clampScale 이 강제). 기본 1.0. legacy store에는 없을 수
    *  있어 loadPlanConfig가 1.0 으로 채운다. */
   petScale?: number;
-  /** 캐릭터(펫) 우클릭 시 동작. "refresh" = 즉시 새로고침(v2.29까지의 기본·유일
-   *  동작), "menu" = 트레이와 동일 항목의 컨텍스트 메뉴 표시. legacy store에는 이
-   *  필드가 없을 수 있어, 소비처(Pet.onContextMenu)가 undefined 를 "refresh" 로
-   *  본다 (기존 사용자 동작 무변화 → BEHAVIOR CHANGE 회피). */
+  /** 캐릭터(펫) 우클릭 시 동작. "menu" = 트레이와 동일 항목의 컨텍스트 메뉴 표시
+   *  (v2.33+ 기본값), "refresh" = 즉시 새로고침(v2.32까지의 기본). legacy store에는
+   *  이 필드가 없을 수 있어, 소비처(Pet.onContextMenu)·설정 UI 가 undefined 를
+   *  "menu" 로 본다. 명시적으로 "refresh" 를 고른 사용자의 값은 그대로 보존되므로
+   *  이 기본값 전환은 미설정 사용자에게만 영향을 준다 (BEHAVIOR CHANGE: v2.33). */
   petRightClickAction?: "refresh" | "menu";
   /** petRightClickAction === "menu" 일 때 우클릭 메뉴에 보일 항목별 On/Off.
    *  key 는 electron/menu.cjs 의 MENU_ITEMS id(예: "refresh"·"settings"·"quit"),

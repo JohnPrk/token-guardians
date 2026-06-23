@@ -1620,12 +1620,12 @@ function Pet({
         data-refreshing={refreshing ? "true" : ""}
         data-tauri-drag-region
         onContextMenu={(e) => {
-          // 우클릭 동작은 설정(config.petRightClickAction)으로 분기. 기본/legacy 는
-          // "refresh"(종전처럼 즉시 새로고침). "menu"면 트레이와 동일 항목의 네이티브
-          // 컨텍스트 메뉴를 메인에서 띄운다. preventDefault 는 두 경우 모두 webview
-          // 기본 메뉴를 막기 위해 유지.
+          // 우클릭 동작은 설정(config.petRightClickAction)으로 분기. v2.33+ 기본/legacy
+          // (미설정)는 "menu"(트레이와 동일 항목의 네이티브 컨텍스트 메뉴)이고, 명시적으로
+          // "refresh" 를 고른 사용자만 종전처럼 즉시 새로고침한다. preventDefault 는 두
+          // 경우 모두 webview 기본 메뉴를 막기 위해 유지.
           e.preventDefault();
-          if (config.petRightClickAction === "menu") {
+          if (config.petRightClickAction !== "refresh") {
             invoke("show_pet_context_menu", {
               toggles: config.petMenuToggles ?? {},
             }).catch(() => {});
@@ -2025,7 +2025,9 @@ function Settings({
   // 저장 후 config-changed 를 emit 해서 펫 윈도우가 즉시 새 설정을 읽게 한다.
   // 항목 목록은 메인(get_menu_items)이 menu.cjs 단일 레지스트리에서 내려주므로,
   // 새 메뉴 항목을 추가하면 이 UI 가 자동으로 따라온다.
-  const [rcAction, setRcAction] = useState<"refresh" | "menu">("refresh");
+  // 초기값은 v2.33+ 기본인 "menu". 저장된 값이 있으면 아래 loadPlanConfig 가
+  // 덮어쓰고, 미설정(legacy)이면 이 기본이 유지돼 소비처와 동일하게 menu 로 보인다.
+  const [rcAction, setRcAction] = useState<"refresh" | "menu">("menu");
   const [menuToggles, setMenuToggles] = useState<Record<string, boolean>>({});
   const [menuItems, setMenuItems] = useState<
     { id: string; settingsLabel: string; conditionalHint: string | null; defaultOn: boolean }[]
@@ -2214,18 +2216,26 @@ function Settings({
 
         <div className="privacy-section">
           <span className="accounts-label">개인정보</span>
-          <label className="telemetry-toggle">
-            <input
-              type="checkbox"
-              checked={!telemetryOptOut}
-              onChange={(e) => updateTelemetryOptOut(!e.target.checked)}
-            />{" "}
-            익명 사용 통계 보내기
-          </label>
-          <p className="api-note">
-            임의의 설치 ID · 앱 버전 · OS 만 수집해 얼마나 쓰이는지 파악하는 데
-            씁니다. 계정 연동 정보(쿠키 · Org ID)는 절대 포함되지 않아요.
-          </p>
+          {/* 아래 "우클릭 메뉴에 표시할 항목" 카드(.menu-toggle-accordion)와 같은
+              밝은 둥근 영역 안에 토글 1행 + 설명을 담아 톤을 맞춘다. 행·라벨·스위치·
+              설명 모두 그 카드와 동일 클래스를 재사용(추가 CSS 없음). */}
+          <div className="menu-toggle-accordion">
+            <label className="menu-toggle-row">
+              <span className="menu-toggle-label">익명 사용 통계 보내기</span>
+              <span className="tp-switch">
+                <input
+                  type="checkbox"
+                  checked={!telemetryOptOut}
+                  onChange={(e) => updateTelemetryOptOut(!e.target.checked)}
+                />
+                <span className="tp-slider" />
+              </span>
+            </label>
+            <p className="menu-toggle-caption">
+              임의의 설치 ID · 앱 버전 · OS 만 수집해 얼마나 쓰이는지 파악하는 데
+              씁니다. 계정 연동 정보(쿠키 · Org ID)는 절대 포함되지 않아요.
+            </p>
+          </div>
         </div>
 
         <div className="pet-behavior-section">
