@@ -2,8 +2,8 @@
 
 > 데스크톱 한구석에서 너의 Claude 토큰 잔량을 지켜봐주는 작은 지키미.
 
-[![Download .dmg](https://img.shields.io/badge/Download-.dmg%20v2.32.0-6b4cff?style=for-the-badge&logo=apple)](https://github.com/JohnPrk/token-guardians/releases/latest/download/token-panda_2.32.0_arm64.dmg)
-[![Download Windows](https://img.shields.io/badge/Download-Windows%20v2.32.0-0078d4?style=for-the-badge&logo=windows)](https://github.com/JohnPrk/token-guardians/releases/latest/download/token-panda_2.32.0_x64-setup.exe)
+[![Download .dmg](https://img.shields.io/badge/Download-.dmg%20v2.34.0-6b4cff?style=for-the-badge&logo=apple)](https://github.com/JohnPrk/token-guardians/releases/latest/download/token-panda_2.34.0_arm64.dmg)
+[![Download Windows](https://img.shields.io/badge/Download-Windows%20v2.34.0-0078d4?style=for-the-badge&logo=windows)](https://github.com/JohnPrk/token-guardians/releases/latest/download/token-panda_2.34.0_x64-setup.exe)
 [![소개 페이지](https://img.shields.io/badge/%EC%86%8C%EA%B0%9C%20%ED%8E%98%EC%9D%B4%EC%A7%80-%EB%B0%94%EB%A1%9C%EA%B0%80%EA%B8%B0-ff8a3d?style=for-the-badge&logo=github&logoColor=white)](https://johnprk.github.io/token-guardians/)
 [![platform](https://img.shields.io/badge/platform-macOS%2011%2B%20%C2%B7%20Windows%2010%2B-lightgrey?style=for-the-badge)](#다운로드)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](#라이선스)
