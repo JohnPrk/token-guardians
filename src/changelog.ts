@@ -44,6 +44,15 @@ export interface ChangelogEntry {
 // 최신이 맨 앞.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.35.0",
+    date: "2026-06-23",
+    title: "업데이트 설치 버튼 복구",
+    body: `
+- 트레이의 **새 버전 설치** 버튼이 macOS에서 다운로드 페이지로 빠지거나 엉뚱한 앱 경로를 볼 수 있던 문제를 고쳤어요.
+- 이제 실행 중인 "토큰 지키미.app" 위치를 기준으로 기존 앱을 종료하고, 새 DMG를 설치한 뒤 다시 실행합니다.
+`,
+  },
+  {
     version: "2.34.0",
     date: "2026-06-23",
     title: "우클릭 메뉴가 기본 동작으로 바뀌었어요",

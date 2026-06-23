@@ -64,6 +64,16 @@ function parseReleaseAssets(json) {
     .filter((a) => a.name && a.browser_download_url);
 }
 
+const DEFAULT_MAC_APP_PATH = "/Applications/토큰 지키미.app";
+
+function resolveMacAppPath(execPath, fallback = DEFAULT_MAC_APP_PATH) {
+  if (typeof execPath !== "string" || !execPath) return fallback;
+  const marker = `${path.sep}Contents${path.sep}MacOS${path.sep}`;
+  const markerIndex = execPath.indexOf(marker);
+  if (markerIndex < 0) return fallback;
+  return execPath.slice(0, markerIndex);
+}
+
 // macOS bash 스크립트: 옛 앱 종료 대기 → dmg 마운트 → .app 복사 → quarantine
 // 제거 → unmount → 새 앱 실행. Tauri 원본 (`spawn_install_script`) 의 정확한
 // 동등 구현 — 사용자가 이미 한 번 검증한 흐름.
@@ -78,6 +88,10 @@ for i in $(seq 1 30); do
   pgrep -f "$APP_PATH/Contents/MacOS" >/dev/null 2>&1 || break
   sleep 1
 done
+PIDS=$(pgrep -f "$APP_PATH/Contents/MacOS" 2>/dev/null || true)
+if [ -n "$PIDS" ]; then
+  kill -9 $PIDS 2>/dev/null || true
+fi
 
 # 2) dmg 마운트
 MOUNT_DIR=$(mktemp -d)
@@ -268,7 +282,7 @@ async function downloadAndStartInstall(asset, opts) {
   await downloadToFile(asset.browser_download_url, dest);
 
   if (platform === "darwin") {
-    const appPath = opts.appPath || "/Applications/TokenGuardians.app";
+    const appPath = opts.appPath || resolveMacAppPath(process.execPath);
     const script = buildMacInstallScript(dest, appPath);
     const scriptPath = path.join(tmpDir, "tp-install.sh");
     fs.writeFileSync(scriptPath, script, "utf8");
@@ -302,10 +316,12 @@ async function downloadAndStartInstall(asset, opts) {
 module.exports = {
   pickAssetForPlatform,
   parseReleaseAssets,
+  resolveMacAppPath,
   buildMacInstallScript,
   buildWindowsInstallScript,
   buildWindowsInstallScriptEB,
   downloadAndStartInstall,
+  DEFAULT_MAC_APP_PATH,
   // 테스트 보조
   MACOS_DMG_PATTERNS,
   WINDOWS_EXE_PATTERNS,

@@ -12,9 +12,11 @@ import { describe, it, expect } from "vitest";
 import installer from "./installer.cjs";
 const {
   pickAssetForPlatform,
+  resolveMacAppPath,
   buildMacInstallScript,
   buildWindowsInstallScript,
   buildWindowsInstallScriptEB,
+  DEFAULT_MAC_APP_PATH,
 } = installer;
 
 describe("pickAssetForPlatform — macOS", () => {
@@ -102,6 +104,16 @@ describe("pickAssetForPlatform — edge cases", () => {
 });
 
 describe("buildMacInstallScript", () => {
+  it("resolves the running .app bundle path from Electron execPath", () => {
+    expect(
+      resolveMacAppPath("/Applications/토큰 지키미.app/Contents/MacOS/TokenGuardians"),
+    ).toBe("/Applications/토큰 지키미.app");
+  });
+
+  it("falls back to the current Korean install name outside a packaged .app", () => {
+    expect(resolveMacAppPath("/usr/local/bin/node")).toBe(DEFAULT_MAC_APP_PATH);
+  });
+
   it("includes the exact dmg path passed in (JSON-quoted, handles spaces)", () => {
     const s = buildMacInstallScript("/tmp/with space.dmg", "/Applications/토큰 판다.app");
     // JSON.stringify 형태로 박혀야 공백/한글 인용이 안전
@@ -126,6 +138,7 @@ describe("buildMacInstallScript", () => {
     const s = buildMacInstallScript("/a", "/Applications/X.app");
     expect(s).toContain("pgrep");
     expect(s).toMatch(/seq 1 30|for .* 30/);
+    expect(s).toContain("kill -9");
   });
 });
 
